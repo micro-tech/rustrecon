@@ -20,7 +20,7 @@ static CLIP: Emoji<'_, '_> = Emoji("📎 ", "");
 static PAPER: Emoji<'_, '_> = Emoji("📃 ", "");
 static SPARKLE: Emoji<'_, '_> = Emoji("✨ ", "");
 
-const RUSTRECON_REPO: &str = "https://github.com/yourusername/RustRecon"; // Update with actual repo
+const RUSTRECON_REPO: &str = "https://github.com/micro-tech/rustrecon";
 const INSTALLATION_DIR: &str = "RustRecon";
 const CONFIG_FILE: &str = "rustrecon_config.toml";
 
@@ -354,19 +354,45 @@ impl Installer {
                 .unwrap(),
         );
 
-        // Clone or download the repository
-        pb.set_message("Downloading RustRecon source code...");
+        // Clone from GitHub repository
+        pb.set_message("Downloading RustRecon source code from GitHub...");
         let repo_path = temp_dir.path().join("rustrecon");
 
-        // For now, copy from the current directory (development setup)
-        // In production, this would clone from GitHub
-        let current_dir = env::current_dir()?;
-        let source_path = current_dir.parent().unwrap().join("rustrecon");
+        // Try git clone first
+        let git_output = StdCommand::new("git")
+            .args(&["clone", RUSTRECON_REPO, &repo_path.to_string_lossy()])
+            .output();
 
-        if source_path.exists() {
-            self.copy_directory(&source_path, &repo_path)?;
-        } else {
-            return Err(anyhow::anyhow!("Source code not found. Please ensure you're running this from the installer directory."));
+        match git_output {
+            Ok(output) if output.status.success() => {
+                println!("  ✅ Successfully cloned from GitHub");
+            }
+            _ => {
+                // Fallback: try to find local source code
+                pb.set_message("Git clone failed, looking for local source...");
+                let current_dir = env::current_dir()?;
+
+                let source_paths = vec![
+                    current_dir.parent().unwrap().join("rustrecon"),
+                    current_dir.join("rustrecon"),
+                ];
+
+                let mut found_local = false;
+                for source_path in &source_paths {
+                    if source_path.exists() && source_path.join("Cargo.toml").exists() {
+                        println!("  📂 Using local source at: {}", source_path.display());
+                        self.copy_directory(source_path, &repo_path)?;
+                        found_local = true;
+                        break;
+                    }
+                }
+
+                if !found_local {
+                    return Err(anyhow::anyhow!(
+                        "Could not download from GitHub and no local source found.\nPlease ensure:\n1. Git is installed and working\n2. Internet connection is available\n3. Or run installer from project directory"
+                    ));
+                }
+            }
         }
 
         pb.set_message("Compiling RustRecon...");
@@ -422,9 +448,17 @@ impl Installer {
             println!("  ✅ Created Start Menu entry");
         }
 
-        // Register uninstaller
-        self.register_uninstaller()?;
-        println!("  ✅ Registered uninstaller");
+        // Register uninstaller (optional - may require admin privileges)
+        match self.register_uninstaller() {
+            Ok(_) => println!("  ✅ Registered uninstaller"),
+            Err(e) => {
+                println!("  ⚠️  Could not register uninstaller: {}", e);
+                println!("     This is normal for user installations without admin privileges");
+                println!(
+                    "     You can still uninstall manually by deleting the installation folder"
+                );
+            }
+        }
 
         println!();
         Ok(())
@@ -493,6 +527,11 @@ impl Installer {
             );
             println!();
         }
+        println!("🗑️ To uninstall:");
+        println!("   Delete folder: {}", self.config.install_path.display());
+        println!("   Remove from PATH if needed");
+        println!("   Delete desktop/Start Menu shortcuts");
+        println!();
         println!("Happy scanning! 🔍");
         println!();
     }
