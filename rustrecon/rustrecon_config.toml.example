@@ -12,6 +12,16 @@ min_request_interval_seconds = 2.0
 # Maximum requests per minute (keep under API limits)
 max_requests_per_minute = 20
 
+[cache]
+# Enable database caching to reduce API calls
+enabled = true
+# Database file location (auto-detected if not specified)
+# database_path = "C:\\Users\\username\\AppData\\Roaming\\rustrecon\\scan_cache.db"
+# Maximum age for cached results (days)
+max_age_days = 90
+# Automatically clean up old cache entries
+auto_cleanup = true
+
 [scanning]
 # Maximum file size to scan (in bytes)
 max_file_size = 1048576

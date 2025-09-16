@@ -3,16 +3,20 @@ use clap::Parser;
 use std::path::PathBuf;
 use std::time::Duration;
 
+mod cached_llm_client;
 mod cli;
 mod config;
+mod database;
 mod dependency_scanner;
 mod llm_client;
 mod report;
 mod scanner;
 mod utils;
 
+use cached_llm_client::CachedLlmClient;
 use cli::{Cli, Commands};
 use config::Config;
+use database::ScanDatabase;
 use dependency_scanner::DependencyScanner;
 use llm_client::{GeminiClient, LlmClientTrait, LlmRequest};
 use report::RiskReport;
@@ -48,17 +52,23 @@ async fn main() -> Result<()> {
             })?;
 
             // Initialize LLM client
-            let mut gemini_client = GeminiClient::new(
+            let gemini_client = GeminiClient::new(
                 llm_config.gemini_api_key.clone(),
                 llm_config.gemini_api_endpoint.clone(),
             );
+
+            // Wrap with caching layer
+            let cache_config = config.cache.unwrap_or_default();
+            let mut cached_client =
+                CachedLlmClient::new(gemini_client, cache_config, "gemini-1.5-flash".to_string())
+                    .await?;
 
             // Simple test request
             let test_request = LlmRequest {
                 prompt: "Hello! Please respond with 'API test successful' to confirm the connection is working.".to_string(),
             };
 
-            match gemini_client.analyze_code(test_request).await {
+            match cached_client.analyze_code(test_request).await {
                 Ok(response) => {
                     println!("✅ API connection successful!");
                     println!("📋 Test response: {}", response.analysis);
@@ -120,11 +130,19 @@ async fn main() -> Result<()> {
                 min_interval.as_secs_f32()
             );
 
-            let mut gemini_client = GeminiClient::with_rate_limit(
+            let gemini_client = GeminiClient::with_rate_limit(
                 llm_config.gemini_api_key,
                 llm_config.gemini_api_endpoint,
                 min_interval,
             );
+
+            // Initialize cached LLM client
+            let cache_config = config.cache.unwrap_or_default();
+            let mut cached_client = CachedLlmClient::new(
+                gemini_client,
+                cache_config,
+                "gemini-1.5-flash".to_string(),
+            ).await?;
 
             // Initialize scanners
             let project_path = PathBuf::from(crate_path);
@@ -140,7 +158,7 @@ async fn main() -> Result<()> {
                 println!("🔍 Starting dependency analysis for supply chain security...");
                 let dependency_scanner = DependencyScanner::new();
                 match dependency_scanner
-                    .scan_dependencies(&project_path, &mut gemini_client)
+                    .scan_dependencies(&project_path, &mut cached_client)
                     .await
                 {
                     Ok(dependency_results) => {
@@ -179,7 +197,7 @@ async fn main() -> Result<()> {
                 );
                 let llm_request = LlmRequest { prompt };
 
-                match gemini_client.analyze_code(llm_request).await {
+                match cached_client.analyze_code(llm_request).await {
                     Ok(llm_response) => {
                         println!(
                             "LLM Analysis for {}: {}",
@@ -211,7 +229,100 @@ async fn main() -> Result<()> {
             let output_path = output.as_ref().map(PathBuf::from);
             risk_report.generate_report(format, output_path.as_deref())?;
 
+            // Show cache performance summary
+            cached_client.print_cache_summary().await;
+
+            // Record session statistics
+            if let Err(e) = cached_client.record_session_stats(total_files as u32).await {
+                println!("⚠️  Failed to record cache statistics: {}", e);
+            }
+
+            // Clean up old cache entries if auto-cleanup is enabled
+            if let Ok(stats) = cached_client.get_cache_statistics().await {
+                if stats.cache_hits > 0 {
+                    println!(
+                        "💡 Tip: Cache saved {} API calls this session!",
+                        stats.cache_hits
+                    );
+                }
+            }
+
             println!("Scan complete. Report generated.");
+        }
+        Some(Commands::Cache { clear, stats, export }) => {
+            // Load configuration for cache access
+            let config = Config::load_from_default_paths()?;
+            let cache_config = config.cache.unwrap_or_default();
+
+            // Initialize database connection
+            let db_path = if let Some(path) = &cache_config.database_path {
+                PathBuf::from(path)
+            } else {
+                let mut default_path = dirs::data_dir()
+                    .or_else(|| dirs::config_dir())
+                    .unwrap_or_else(|| PathBuf::from("."));
+                default_path.push("rustrecon");
+                default_path.push("scan_cache.db");
+                default_path
+            };
+
+            println!("📊 RustRecon Cache Management");
+            println!("Database: {}", db_path.display());
+
+            if *clear {
+                println!("\n🗑️ Clearing all cached scan results...");
+                if let Ok(database) = ScanDatabase::new(&db_path).await {
+                    match database.cleanup_old_entries(0).await {
+                        Ok(deleted) => println!("✅ Cleared {} cached entries", deleted),
+                        Err(e) => println!("❌ Failed to clear cache: {}", e),
+                    }
+                } else {
+                    println!("❌ Could not access cache database");
+                }
+            }
+
+            if *stats || (!clear && export.is_none()) {
+                println!("\n📈 Cache Statistics:");
+                if let Ok(database) = ScanDatabase::new(&db_path).await {
+                    match database.get_cache_stats().await {
+                        Ok(stats) => {
+                            println!("   Total cached entries: {}", stats.total_cached_entries);
+                            println!("   Recent scans (7 days): {}", stats.recent_scans_7_days);
+
+                            // Show popular packages
+                            if let Ok(popular) = database.get_popular_packages(5).await {
+                                println!("\n📦 Most Scanned Packages:");
+                                for pkg in popular {
+                                    println!("   {} ({} scans, last: {})",
+                                        pkg.package_name,
+                                        pkg.scan_count,
+                                        pkg.last_scan_date.format("%Y-%m-%d %H:%M")
+                                    );
+                                }
+                            }
+                        }
+                        Err(e) => println!("   ❌ Failed to get statistics: {}", e),
+                    }
+                } else {
+                    println!("   No cache database found or accessible");
+                }
+            }
+
+            if let Some(export_path) = export {
+                println!("\n📤 Exporting cache data to: {}", export_path);
+                if let Ok(database) = ScanDatabase::new(&db_path).await {
+                    match database.export_cache().await {
+                        Ok(data) => {
+                            let json_data = serde_json::to_string_pretty(&data)?;
+                            std::fs::write(export_path, json_data)?;
+                            println!("✅ Cache data exported successfully");
+                        }
+                        Err(e) => println!("❌ Failed to export cache: {}", e),
+                    }
+                } else {
+                    println!("❌ Could not access cache database");
+                }
+            }
         }
         None => {
             // If no subcommand is provided, print help

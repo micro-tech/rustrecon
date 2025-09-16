@@ -35,4 +35,16 @@ pub enum Commands {
         #[clap(long)]
         skip_dependencies: bool,
     },
+    /// Show cache statistics and performance
+    Cache {
+        /// Clear all cached scan results
+        #[clap(short, long)]
+        clear: bool,
+        /// Show detailed cache statistics
+        #[clap(short, long)]
+        stats: bool,
+        /// Export cache data to JSON file
+        #[clap(short, long)]
+        export: Option<String>,
+    },
 }

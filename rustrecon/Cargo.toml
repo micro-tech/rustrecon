@@ -20,3 +20,5 @@ toml = "0.8.12" # For parsing and generating TOML configuration files
 dirs = "5.0.1" # For discovering standard directories like config_dir
 walkdir = "2.5.0"
 regex = "1.11.2"
+sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "sqlite", "chrono", "uuid"] }
+sha2 = "0.10"

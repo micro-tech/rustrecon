@@ -9,6 +9,7 @@ const DEFAULT_CONFIG_FILE_NAME: &str = "rustrecon_config.toml";
 pub struct Config {
     pub llm: Option<LlmConfig>,
     pub rate_limiting: Option<RateLimitConfig>,
+    pub cache: Option<CacheConfig>,
     // Add other configuration sections as needed, e.g., [scanner], [report]
 }
 
@@ -25,6 +26,14 @@ pub struct RateLimitConfig {
     pub min_request_interval_seconds: Option<f32>,
     pub max_requests_per_minute: Option<u32>,
     pub enable_rate_limiting: Option<bool>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct CacheConfig {
+    pub enabled: Option<bool>,
+    pub database_path: Option<String>,
+    pub max_age_days: Option<u32>,
+    pub auto_cleanup: Option<bool>,
 }
 
 impl Config {
@@ -89,6 +98,12 @@ impl Config {
                 min_request_interval_seconds: Some(2.0),
                 max_requests_per_minute: Some(20),
                 enable_rate_limiting: Some(true),
+            }),
+            cache: Some(CacheConfig {
+                enabled: Some(true),
+                database_path: None,    // Will use default location
+                max_age_days: Some(90), // Keep cache for 3 months
+                auto_cleanup: Some(true),
             }),
         };
 

@@ -23,6 +23,7 @@ impl Scanner {
         {
             if entry.file_type().is_file()
                 && entry.path().extension().map_or(false, |ext| ext == "rs")
+                && !self.should_exclude_file(entry.path())
             {
                 if let Some(analysis_result) = self.analyze_file(entry.path())? {
                     results.push(analysis_result);
@@ -30,6 +31,47 @@ impl Scanner {
             }
         }
         Ok(results)
+    }
+
+    /// Check if a file should be excluded from scanning
+    fn should_exclude_file(&self, path: &Path) -> bool {
+        let path_str = path.to_string_lossy().to_lowercase();
+
+        // Exclude build artifacts and generated files
+        let exclude_patterns = [
+            "target/",
+            "/target/",
+            "\\target\\",
+            "/build/",
+            "\\build\\",
+            ".git/",
+            "/.git/",
+            "\\.git\\",
+            "node_modules/",
+            "/node_modules/",
+            "\\node_modules\\",
+            "bindgen.rs",
+            "/bindgen.rs",
+            "\\bindgen.rs",
+            "/tests.rs",
+            "\\tests.rs",
+        ];
+
+        // Check if path contains any excluded patterns
+        for pattern in &exclude_patterns {
+            if path_str.contains(pattern) {
+                return true;
+            }
+        }
+
+        // Exclude very large files (likely generated)
+        if let Ok(metadata) = std::fs::metadata(path) {
+            if metadata.len() > 500_000 {  // 500KB limit
+                return true;
+            }
+        }
+
+        false
     }
 
     fn analyze_file(&mut self, path: &Path) -> Result<Option<FileAnalysisResult>> {

@@ -6,6 +6,7 @@ use std::collections::{HashMap, HashSet};
 use std::path::Path;
 use tokio::time::{sleep, timeout, Duration};
 
+use crate::cached_llm_client::CachedLlmClient;
 use crate::llm_client::{FlaggedPattern, LlmClientTrait, LlmRequest};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -114,10 +115,10 @@ impl DependencyScanner {
         }
     }
 
-    pub async fn scan_dependencies<T: LlmClientTrait>(
+    pub async fn scan_dependencies<T: LlmClientTrait + Send>(
         &self,
         project_path: &Path,
-        llm_client: &mut T,
+        llm_client: &mut CachedLlmClient<T>,
     ) -> Result<Vec<DependencyAnalysisResult>> {
         println!("🔍 Scanning dependencies for supply chain security...");
 
@@ -250,10 +251,10 @@ impl DependencyScanner {
         })
     }
 
-    async fn analyze_dependency<T: LlmClientTrait>(
+    async fn analyze_dependency<T: LlmClientTrait + Send>(
         &self,
         package: &Package,
-        llm_client: &mut T,
+        llm_client: &mut CachedLlmClient<T>,
     ) -> Result<DependencyAnalysisResult> {
         // Determine dependency source
         let source = self.determine_dependency_source(package);
@@ -270,13 +271,46 @@ impl DependencyScanner {
                 Vec::new(),
             )
         } else {
+            // Create LLM request for package analysis
+            let analysis_prompt = format!(
+                "Analyze this Rust package for potential security threats, supply chain attacks, or malicious behavior:
+
+Package: {} v{}
+Repository: {:?}
+Dependencies: {} direct dependencies
+
+Focus on:
+1. Unusual network communications
+2. File system access patterns
+3. Suspicious build scripts
+4. Potential backdoors or malicious code
+5. Supply chain attack vectors
+
+Provide a brief security assessment.",
+                package.name,
+                package.version,
+                package.repository,
+                package.dependencies.len()
+            );
+
+            let request = LlmRequest {
+                prompt: analysis_prompt.clone(),
+            };
+
             match timeout(
-                Duration::from_secs(60),
-                self.download_and_analyze_source(package, llm_client),
+                Duration::from_secs(45),
+                llm_client.analyze_package(
+                    &package.name,
+                    &package.version.to_string(),
+                    &analysis_prompt,
+                    request,
+                ),
             )
             .await
             {
-                Ok(Ok(result)) => result,
+                Ok(Ok(llm_response)) => {
+                    (Some(llm_response.analysis), llm_response.flagged_patterns)
+                }
                 Ok(Err(e)) => {
                     println!(
                         "   ⚠️  Could not analyze source for {}: {}",
@@ -465,10 +499,10 @@ impl DependencyScanner {
         }
     }
 
-    async fn download_and_analyze_source<T: LlmClientTrait>(
+    async fn download_and_analyze_source<T: LlmClientTrait + Send>(
         &self,
         package: &Package,
-        llm_client: &mut T,
+        llm_client: &mut CachedLlmClient<T>,
     ) -> Result<(Option<String>, Vec<FlaggedPattern>)> {
         // For now, we'll analyze the package's lib.rs or main.rs if accessible
         // In a full implementation, we'd download the crate source from crates.io
