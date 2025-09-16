@@ -419,11 +419,22 @@ impl Installer {
         let binary_dst = self.config.install_path.join("rustrecon.exe");
         fs::copy(&binary_src, &binary_dst).context("Failed to copy RustRecon binary")?;
 
-        // Copy configuration template
-        let config_src = repo_path.join("rustrecon_config.toml");
-        let config_dst = self.config.install_path.join(CONFIG_FILE);
-        if config_src.exists() {
-            fs::copy(&config_src, &config_dst).context("Failed to copy configuration file")?;
+        // Copy configuration template to user config directory
+        let config_src = repo_path.join("rustrecon_config.toml.example");
+
+        // Use proper user config directory
+        if let Some(mut config_dir) = dirs::config_dir() {
+            config_dir.push("rustrecon");
+            fs::create_dir_all(&config_dir).context("Failed to create config directory")?;
+            config_dir.push(CONFIG_FILE);
+
+            if config_src.exists() {
+                fs::copy(&config_src, &config_dir).context("Failed to copy configuration file")?;
+                println!(
+                    "  ✅ Configuration template created at: {}",
+                    config_dir.display()
+                );
+            }
         }
 
         pb.finish_with_message("✅ RustRecon installed successfully!");
@@ -468,15 +479,20 @@ impl Installer {
         if let Some(api_key) = &self.config.gemini_api_key {
             println!("{}Setting up configuration...", CLIP);
 
-            let config_path = self.config.install_path.join(CONFIG_FILE);
-            if config_path.exists() {
-                let mut config_content = fs::read_to_string(&config_path)?;
-                config_content = config_content.replace(
-                    "gemini_api_key = \"PASTE_YOUR_GEMINI_API_KEY_HERE\"",
-                    &format!("gemini_api_key = \"{}\"", api_key),
-                );
-                fs::write(&config_path, config_content)?;
-                println!("  ✅ API key configured");
+            // Configure API key in user config directory
+            if let Some(mut config_dir) = dirs::config_dir() {
+                config_dir.push("rustrecon");
+                config_dir.push(CONFIG_FILE);
+
+                if config_dir.exists() {
+                    let mut config_content = fs::read_to_string(&config_dir)?;
+                    config_content = config_content.replace(
+                        "gemini_api_key = \"PASTE_YOUR_GEMINI_API_KEY_HERE\"",
+                        &format!("gemini_api_key = \"{}\"", api_key),
+                    );
+                    fs::write(&config_dir, config_content)?;
+                    println!("  ✅ API key configured");
+                }
             }
 
             // Test the API key
@@ -520,11 +536,14 @@ impl Installer {
         if self.config.gemini_api_key.is_none() {
             println!("⚠️  Remember to configure your Gemini API key:");
             println!("   rustrecon init");
-            println!(
-                "   Edit: {}\\{}",
-                self.config.install_path.display(),
-                CONFIG_FILE
-            );
+
+            if let Some(mut config_dir) = dirs::config_dir() {
+                config_dir.push("rustrecon");
+                config_dir.push(CONFIG_FILE);
+                println!("   Edit: {}", config_dir.display());
+            } else {
+                println!("   Edit the config file in your user directory");
+            }
             println!();
         }
         println!("🗑️ To uninstall:");

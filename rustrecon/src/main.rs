@@ -23,9 +23,19 @@ async fn main() -> Result<()> {
 
     match &cli.command {
         Some(Commands::Init { config_path }) => {
-            println!("Initializing configuration file at: {}", config_path);
-            Config::generate_default_config(PathBuf::from(config_path))?;
+            let config_file_path = if let Some(path) = config_path {
+                PathBuf::from(path)
+            } else {
+                Config::get_default_config_path()?
+            };
+
+            println!(
+                "Initializing configuration file at: {}",
+                config_file_path.display()
+            );
+            Config::generate_default_config(config_file_path.clone())?;
             println!("Default configuration written successfully.");
+            println!("Edit the file and add your Gemini API key to get started!");
         }
         Some(Commands::Test) => {
             println!("🔍 Testing LLM API connection...");

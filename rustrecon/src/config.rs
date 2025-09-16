@@ -1,7 +1,7 @@
-use serde::{Deserialize, Serialize};
-use std::path::{Path, PathBuf};
-use std::fs;
 use anyhow::Result;
+use serde::{Deserialize, Serialize};
+use std::fs;
+use std::path::{Path, PathBuf};
 
 const DEFAULT_CONFIG_FILE_NAME: &str = "rustrecon_config.toml";
 
@@ -28,16 +28,9 @@ impl Config {
     }
 
     /// Tries to load the configuration from common default paths.
-    /// Order of precedence: current directory, user config directory.
+    /// Order of precedence: user config directory, current directory.
     pub fn load_from_default_paths() -> Result<Self> {
-        // 1. Current directory
-        let current_dir_path = PathBuf::from(DEFAULT_CONFIG_FILE_NAME);
-        if current_dir_path.exists() {
-            println!("Loading config from: {}", current_dir_path.display());
-            return Config::load_from_path(&current_dir_path);
-        }
-
-        // 2. User config directory (e.g., ~/.config/rustrecon/rustrecon_config.toml)
+        // 1. User config directory (preferred location)
         if let Some(mut config_dir) = dirs::config_dir() {
             config_dir.push("rustrecon");
             config_dir.push(DEFAULT_CONFIG_FILE_NAME);
@@ -47,14 +40,39 @@ impl Config {
             }
         }
 
-        anyhow::bail!("No configuration file found. Please run `rustrecon init` or create `{}` manually.", DEFAULT_CONFIG_FILE_NAME)
+        // 2. Installation directory (for installer-generated configs)
+        if let Some(mut local_data_dir) = dirs::data_local_dir() {
+            local_data_dir.push("RustRecon");
+            local_data_dir.push(DEFAULT_CONFIG_FILE_NAME);
+            if local_data_dir.exists() {
+                println!("Loading config from: {}", local_data_dir.display());
+                return Config::load_from_path(&local_data_dir);
+            }
+        }
+
+        // 3. Current directory (fallback)
+        let current_dir_path = PathBuf::from(DEFAULT_CONFIG_FILE_NAME);
+        if current_dir_path.exists() {
+            println!("Loading config from: {}", current_dir_path.display());
+            return Config::load_from_path(&current_dir_path);
+        }
+
+        anyhow::bail!(
+            "No configuration file found. Please run `rustrecon init` or create `{}` manually.",
+            DEFAULT_CONFIG_FILE_NAME
+        )
     }
 
     /// Generates a default configuration file at the specified path.
     pub fn generate_default_config(path: PathBuf) -> Result<()> {
+        // Create parent directories if they don't exist
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+
         let default_config = Self {
             llm: Some(LlmConfig {
-                gemini_api_key: "YOUR_GEMINI_API_KEY".to_string(),
+                gemini_api_key: "PASTE_YOUR_GEMINI_API_KEY_HERE".to_string(),
                 gemini_api_endpoint: "https://generativelanguage.googleapis.com".to_string(),
                 temperature: Some(0.7),
                 max_tokens: Some(1024),
@@ -64,5 +82,17 @@ impl Config {
         let toml_string = toml::to_string_pretty(&default_config)?;
         fs::write(&path, toml_string)?;
         Ok(())
+    }
+
+    /// Gets the default configuration path for the current user
+    pub fn get_default_config_path() -> Result<PathBuf> {
+        if let Some(mut config_dir) = dirs::config_dir() {
+            config_dir.push("rustrecon");
+            config_dir.push(DEFAULT_CONFIG_FILE_NAME);
+            Ok(config_dir)
+        } else {
+            // Fallback to current directory
+            Ok(PathBuf::from(DEFAULT_CONFIG_FILE_NAME))
+        }
     }
 }

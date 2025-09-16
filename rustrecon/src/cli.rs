@@ -11,9 +11,9 @@ pub struct Cli {
 pub enum Commands {
     /// Initializes configuration files
     Init {
-        /// Path to create the config file
-        #[clap(short, long, default_value = "./rustrecon_config.toml")]
-        config_path: String,
+        /// Path to create the config file (uses user config directory by default)
+        #[clap(short, long)]
+        config_path: Option<String>,
     },
     /// Tests the LLM API connection
     Test,
