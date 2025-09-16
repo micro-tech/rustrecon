@@ -1,0 +1,98 @@
+# Rust build artifacts
+/target/
+**/*.rs.bk
+*.pdb
+
+# Cargo lock file (uncomment if this is a library)
+# Cargo.lock
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Windows
+*.exe
+!rustrecon-installer.exe
+*.dll
+*.pdb
+*.ilk
+*.exp
+*.lib
+*.obj
+
+# Temporary files
+*.tmp
+*.temp
+*.log
+
+# Configuration files with sensitive data
+rustrecon_config.toml
+**/rustrecon_config.toml
+**/target/**/rustrecon_config.toml
+!rustrecon_config.toml.example
+!**/rustrecon_config.toml.example
+
+# API keys and secrets
+*.key
+*.secret
+.env
+.env.local
+
+# Build outputs and all config copies
+/installer/target/
+/rustrecon/target/
+**/target/
+
+# Test outputs
+**/test_output/
+**/reports/
+**/*_report.md
+**/*_results.json
+
+# Documentation builds
+/doc/
+
+# Backup files
+*.bak
+*.backup
+
+# Coverage reports
+/coverage/
+*.profraw
+
+# Local development
+/local/
+/dev/
+/scratch/
+
+# Node modules (if any web components)
+node_modules/
+
+# Python cache (if any Python tools)
+__pycache__/
+*.pyc
+*.pyo
+
+# Local installer builds (keep main installer)
+install.exe
+/installer/install.exe
+
+# Demo and test artifacts
+demo.exe
+demo.pdb
+
+# Zed editor settings (keep project settings)
+.zed/settings.json
+.zed/tasks.json

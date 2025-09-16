@@ -1,0 +1,44 @@
+[llm]
+gemini_api_key = "PASTE_YOUR_GEMINI_API_KEY_HERE"
+gemini_api_endpoint = "https://generativelanguage.googleapis.com"
+temperature = 0.699999988079071
+max_tokens = 1024
+
+[scanning]
+# Maximum file size to scan (in bytes)
+max_file_size = 1048576
+
+# Timeout for LLM requests (in seconds)
+timeout_seconds = 30
+
+# Number of concurrent requests to make
+concurrent_requests = 3
+
+# File patterns to exclude from scanning
+exclude_patterns = [
+    "target/**",
+    "node_modules/**",
+    "*.min.js",
+    "vendor/**",
+    ".git/**"
+]
+
+[output]
+# Default output format: summary, condensed, markdown, json
+default_format = "condensed"
+
+# Include source code snippets in reports
+include_source_code = false
+
+# Maximum lines to include in code snippets
+max_snippet_lines = 10
+
+[dependencies]
+# Enable dependency scanning for supply chain analysis
+scan_dependencies = true
+
+# Maximum dependency depth to analyze
+max_dependency_depth = 3
+
+# Timeout for dependency analysis (in seconds)
+dependency_timeout = 60
