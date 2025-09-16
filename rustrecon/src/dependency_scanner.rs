@@ -117,7 +117,7 @@ impl DependencyScanner {
     pub async fn scan_dependencies<T: LlmClientTrait>(
         &self,
         project_path: &Path,
-        llm_client: &T,
+        llm_client: &mut T,
     ) -> Result<Vec<DependencyAnalysisResult>> {
         println!("🔍 Scanning dependencies for supply chain security...");
 
@@ -253,7 +253,7 @@ impl DependencyScanner {
     async fn analyze_dependency<T: LlmClientTrait>(
         &self,
         package: &Package,
-        llm_client: &T,
+        llm_client: &mut T,
     ) -> Result<DependencyAnalysisResult> {
         // Determine dependency source
         let source = self.determine_dependency_source(package);
@@ -468,7 +468,7 @@ impl DependencyScanner {
     async fn download_and_analyze_source<T: LlmClientTrait>(
         &self,
         package: &Package,
-        llm_client: &T,
+        llm_client: &mut T,
     ) -> Result<(Option<String>, Vec<FlaggedPattern>)> {
         // For now, we'll analyze the package's lib.rs or main.rs if accessible
         // In a full implementation, we'd download the crate source from crates.io

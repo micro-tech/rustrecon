@@ -4,6 +4,14 @@ gemini_api_endpoint = "https://generativelanguage.googleapis.com"
 temperature = 0.699999988079071
 max_tokens = 1024
 
+[rate_limiting]
+# Enable rate limiting to avoid hitting API quotas
+enable_rate_limiting = true
+# Minimum seconds between API requests (2.0 = 2 seconds)
+min_request_interval_seconds = 2.0
+# Maximum requests per minute (keep under API limits)
+max_requests_per_minute = 20
+
 [scanning]
 # Maximum file size to scan (in bytes)
 max_file_size = 1048576

@@ -2,7 +2,8 @@ use async_trait::async_trait;
 use regex::Regex;
 use reqwest::{Client, Error as ReqwestError};
 use serde::{Deserialize, Serialize};
-use std::time::Duration;
+use std::time::{Duration, Instant};
+use tokio::time::sleep;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct LlmRequest {
@@ -47,25 +48,33 @@ pub struct FlaggedPattern {
 
 #[async_trait]
 pub trait LlmClientTrait {
-    async fn analyze_code(&self, request: LlmRequest) -> Result<LlmResponse, LlmClientError>;
+    async fn analyze_code(&mut self, request: LlmRequest) -> Result<LlmResponse, LlmClientError>;
 }
 
 pub struct GeminiClient {
+    client: Client,
     api_key: String,
     api_endpoint: String,
-    http_client: Client,
+    last_request_time: Option<Instant>,
+    min_request_interval: Duration,
 }
 
 impl GeminiClient {
     pub fn new(api_key: String, api_endpoint: String) -> Self {
-        let http_client = Client::builder()
+        Self::with_rate_limit(api_key, api_endpoint, Duration::from_secs(2))
+    }
+
+    pub fn with_rate_limit(api_key: String, api_endpoint: String, min_interval: Duration) -> Self {
+        let client = Client::builder()
             .timeout(Duration::from_secs(30))
             .build()
             .expect("Failed to build HTTP client");
         GeminiClient {
+            client,
             api_key,
             api_endpoint,
-            http_client,
+            last_request_time: None,
+            min_request_interval: min_interval,
         }
     }
 
@@ -124,7 +133,25 @@ impl GeminiClient {
 
 #[async_trait]
 impl LlmClientTrait for GeminiClient {
-    async fn analyze_code(&self, request: LlmRequest) -> Result<LlmResponse, LlmClientError> {
+    async fn analyze_code(&mut self, request: LlmRequest) -> Result<LlmResponse, LlmClientError> {
+        // Rate limiting: ensure minimum delay between requests
+        if let Some(last_time) = self.last_request_time {
+            let elapsed = last_time.elapsed();
+            if elapsed < self.min_request_interval {
+                let sleep_duration = self.min_request_interval - elapsed;
+                println!(
+                    "  ⏳ Rate limiting: waiting {:.1}s to avoid API limits...",
+                    sleep_duration.as_secs_f32()
+                );
+                sleep(sleep_duration).await;
+            }
+        }
+
+        self.last_request_time = Some(Instant::now());
+        println!(
+            "  🔍 Analyzing code chunk ({} characters)...",
+            request.prompt.len()
+        );
         let url = format!(
             "{}/v1beta/models/gemini-1.5-flash:generateContent?key={}",
             self.api_endpoint, self.api_key
@@ -175,7 +202,7 @@ impl LlmClientTrait for GeminiClient {
         });
 
         let response = self
-            .http_client
+            .client
             .post(&url)
             .json(&gemini_request_body)
             .send()

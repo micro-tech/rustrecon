@@ -1,6 +1,7 @@
 use anyhow::Result;
 use clap::Parser;
 use std::path::PathBuf;
+use std::time::Duration;
 
 mod cli;
 mod config;
@@ -47,7 +48,7 @@ async fn main() -> Result<()> {
             })?;
 
             // Initialize LLM client
-            let gemini_client = GeminiClient::new(
+            let mut gemini_client = GeminiClient::new(
                 llm_config.gemini_api_key.clone(),
                 llm_config.gemini_api_endpoint.clone(),
             );
@@ -102,9 +103,28 @@ async fn main() -> Result<()> {
                 anyhow::anyhow!("LLM configuration not found. Please run `init` or provide config.")
             })?;
 
-            // Initialize LLM client
-            let gemini_client =
-                GeminiClient::new(llm_config.gemini_api_key, llm_config.gemini_api_endpoint);
+            // Initialize LLM client with rate limiting
+            let rate_limit_config = config.rate_limiting.as_ref();
+            let min_interval = if let Some(rate_config) = rate_limit_config {
+                if rate_config.enable_rate_limiting.unwrap_or(true) {
+                    Duration::from_secs_f32(rate_config.min_request_interval_seconds.unwrap_or(2.0))
+                } else {
+                    Duration::from_millis(100) // Minimal delay if disabled
+                }
+            } else {
+                Duration::from_secs(2) // Default
+            };
+
+            println!(
+                "⚠️  Rate limiting enabled: {:.1}s between API requests to avoid hitting limits",
+                min_interval.as_secs_f32()
+            );
+
+            let mut gemini_client = GeminiClient::with_rate_limit(
+                llm_config.gemini_api_key,
+                llm_config.gemini_api_endpoint,
+                min_interval,
+            );
 
             // Initialize scanners
             let project_path = PathBuf::from(crate_path);
@@ -120,7 +140,7 @@ async fn main() -> Result<()> {
                 println!("🔍 Starting dependency analysis for supply chain security...");
                 let dependency_scanner = DependencyScanner::new();
                 match dependency_scanner
-                    .scan_dependencies(&project_path, &gemini_client)
+                    .scan_dependencies(&project_path, &mut gemini_client)
                     .await
                 {
                     Ok(dependency_results) => {
@@ -139,8 +159,18 @@ async fn main() -> Result<()> {
                 println!("⏭️  Skipping dependency scan (disabled)");
             }
 
-            for file_result in file_analysis_results {
-                println!("Analyzing file: {}", file_result.path.display());
+            let total_files = file_analysis_results.len();
+            println!(
+                "📁 Analyzing {} code files (this may take a while due to API rate limiting)...",
+                total_files
+            );
+            for (index, file_result) in file_analysis_results.into_iter().enumerate() {
+                println!(
+                    "📄 [{}/{}] Analyzing file: {}",
+                    index + 1,
+                    total_files,
+                    file_result.path.display()
+                );
 
                 // Placeholder for actual LLM interaction
                 let prompt = format!(
@@ -157,7 +187,7 @@ async fn main() -> Result<()> {
                             llm_response.analysis
                         );
                         risk_report.add_file_finding(
-                            file_result.path,
+                            file_result.path.clone(),
                             llm_response.analysis,
                             llm_response.flagged_patterns,
                         );
@@ -170,7 +200,7 @@ async fn main() -> Result<()> {
                         );
                         // Add an empty finding or a finding indicating an error
                         risk_report.add_file_finding(
-                            file_result.path,
+                            file_result.path.clone(),
                             format!("LLM analysis failed: {}", e),
                             vec![],
                         );

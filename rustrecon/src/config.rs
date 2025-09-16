@@ -8,6 +8,7 @@ const DEFAULT_CONFIG_FILE_NAME: &str = "rustrecon_config.toml";
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Config {
     pub llm: Option<LlmConfig>,
+    pub rate_limiting: Option<RateLimitConfig>,
     // Add other configuration sections as needed, e.g., [scanner], [report]
 }
 
@@ -17,6 +18,13 @@ pub struct LlmConfig {
     pub gemini_api_endpoint: String,
     pub temperature: Option<f32>,
     pub max_tokens: Option<u32>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct RateLimitConfig {
+    pub min_request_interval_seconds: Option<f32>,
+    pub max_requests_per_minute: Option<u32>,
+    pub enable_rate_limiting: Option<bool>,
 }
 
 impl Config {
@@ -76,6 +84,11 @@ impl Config {
                 gemini_api_endpoint: "https://generativelanguage.googleapis.com".to_string(),
                 temperature: Some(0.7),
                 max_tokens: Some(1024),
+            }),
+            rate_limiting: Some(RateLimitConfig {
+                min_request_interval_seconds: Some(2.0),
+                max_requests_per_minute: Some(20),
+                enable_rate_limiting: Some(true),
             }),
         };
 
