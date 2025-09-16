@@ -171,7 +171,7 @@ Edit the configuration file:
 ```toml
 # rustrecon_config.toml
 [llm]
-gemini_api_key = "AIzaSyD_YourActualAPIKeyHere_1234567890"
+gemini_api_key = "YOUR_ACTUAL_API_KEY_HERE"
 gemini_api_endpoint = "https://generativelanguage.googleapis.com"
 
 [scanning]
