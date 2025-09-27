@@ -60,7 +60,7 @@ async fn main() -> Result<()> {
             // Wrap with caching layer
             let cache_config = config.cache.unwrap_or_default();
             let mut cached_client =
-                CachedLlmClient::new(gemini_client, cache_config, "gemini-1.5-flash".to_string())
+                CachedLlmClient::new(gemini_client, cache_config, "gemini-2.5-flash".to_string())
                     .await?;
 
             // Simple test request
@@ -138,11 +138,9 @@ async fn main() -> Result<()> {
 
             // Initialize cached LLM client
             let cache_config = config.cache.unwrap_or_default();
-            let mut cached_client = CachedLlmClient::new(
-                gemini_client,
-                cache_config,
-                "gemini-1.5-flash".to_string(),
-            ).await?;
+            let mut cached_client =
+                CachedLlmClient::new(gemini_client, cache_config, "gemini-2.5-flash".to_string())
+                    .await?;
 
             // Initialize scanners
             let project_path = PathBuf::from(crate_path);
@@ -249,7 +247,11 @@ async fn main() -> Result<()> {
 
             println!("Scan complete. Report generated.");
         }
-        Some(Commands::Cache { clear, stats, export }) => {
+        Some(Commands::Cache {
+            clear,
+            stats,
+            export,
+        }) => {
             // Load configuration for cache access
             let config = Config::load_from_default_paths()?;
             let cache_config = config.cache.unwrap_or_default();
@@ -293,7 +295,8 @@ async fn main() -> Result<()> {
                             if let Ok(popular) = database.get_popular_packages(5).await {
                                 println!("\n📦 Most Scanned Packages:");
                                 for pkg in popular {
-                                    println!("   {} ({} scans, last: {})",
+                                    println!(
+                                        "   {} ({} scans, last: {})",
                                         pkg.package_name,
                                         pkg.scan_count,
                                         pkg.last_scan_date.format("%Y-%m-%d %H:%M")
