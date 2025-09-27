@@ -153,7 +153,7 @@ impl LlmClientTrait for GeminiClient {
             request.prompt.len()
         );
         let url = format!(
-            "{}/v1beta/models/gemini-2.5-flash-lite:generateContent?key={}",
+            "{}/v1/models/gemini-pro:generateContent?key={}",
             self.api_endpoint, self.api_key
         );
 
