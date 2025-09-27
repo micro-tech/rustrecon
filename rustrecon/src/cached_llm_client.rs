@@ -25,11 +25,11 @@ impl<T: LlmClientTrait + Send> CachedLlmClient<T> {
             let db_path = if let Some(path) = &cache_config.database_path {
                 PathBuf::from(path)
             } else {
-                // Use default location in user's data directory
-                let mut default_path = dirs::data_dir()
-                    .or_else(|| dirs::config_dir())
+                // Use default location in user's local data directory
+                let mut default_path = dirs::data_local_dir()
+                    .or_else(|| dirs::data_dir())
                     .unwrap_or_else(|| PathBuf::from("."));
-                default_path.push("rustrecon");
+                default_path.push("RustRecon");
                 default_path.push("scan_cache.db");
                 default_path
             };

@@ -66,7 +66,7 @@ Scanning 50 packages:
 ```
 Scanning same 50 packages:
 ├── API Calls: 5-10 requests (90% cache hit rate)
-├── Time: ~15 seconds 
+├── Time: ~15 seconds
 ├── Cost: ~$0.25 (estimated)
 └── Risk: Minimal rate limit exposure
 ```
@@ -114,11 +114,11 @@ rustrecon cache --stats
 # Output example:
 # 📊 RustRecon Cache Management
 # Database: C:\Users\user\AppData\Roaming\rustrecon\scan_cache.db
-# 
+#
 # 📈 Cache Statistics:
 #    Total cached entries: 1,247
 #    Recent scans (7 days): 89
-# 
+#
 # 📦 Most Scanned Packages:
 #    serde (42 scans, last: 2024-01-15 14:30)
 #    tokio (31 scans, last: 2024-01-15 12:15)
@@ -157,7 +157,7 @@ CREATE TABLE scan_results (
     analysis TEXT NOT NULL,               -- LLM analysis result
     flagged_patterns_json TEXT NOT NULL,  -- Serialized security patterns
     scan_date DATETIME DEFAULT CURRENT_TIMESTAMP,
-    llm_model TEXT DEFAULT 'gemini-1.5-flash',
+    llm_model TEXT DEFAULT 'gemini-2.5-flash',
     UNIQUE(package_name, package_version, content_hash)
 );
 ```
@@ -210,7 +210,7 @@ During scans, you'll see real-time cache performance:
 📄 [3/15] Analyzing dependency: serde v1.0.136
   💾 Cache HIT for serde v1.0.136 (saved API call!)
 
-📄 [4/15] Analyzing dependency: custom-pkg v0.1.0  
+📄 [4/15] Analyzing dependency: custom-pkg v0.1.0
   🔍 Cache MISS for custom-pkg v0.1.0 - calling LLM...
   ⏳ Rate limiting: waiting 2.0s to avoid API limits...
   💾 Cached result for custom-pkg v0.1.0
@@ -320,13 +320,13 @@ max_age_days = 180                   # Longer retention
 let cached_client = CachedLlmClient::new(
     base_client,
     cache_config,
-    "gemini-1.5-flash".to_string()
+    "gemini-2.5-flash".to_string()
 ).await?;
 
 // Analyze with caching support
 let response = cached_client.analyze_package(
     "package_name",
-    "1.0.0", 
+    "1.0.0",
     &content,
     llm_request
 ).await?;
@@ -348,13 +348,13 @@ let id = db.store_scan_result(
     &content_hash,
     &analysis,
     &flagged_patterns,
-    "gemini-1.5-flash"
+    "gemini-2.5-flash"
 ).await?;
 
-// Retrieve cached result  
+// Retrieve cached result
 let cached = db.get_cached_result(
-    "package_name", 
-    "1.0.0", 
+    "package_name",
+    "1.0.0",
     &content_hash
 ).await?;
 ```

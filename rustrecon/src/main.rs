@@ -34,13 +34,24 @@ async fn main() -> Result<()> {
                 Config::get_default_config_path()?
             };
 
-            println!(
-                "Initializing configuration file at: {}",
-                config_file_path.display()
-            );
-            Config::generate_default_config(config_file_path.clone())?;
-            println!("Default configuration written successfully.");
-            println!("Edit the file and add your Gemini API key to get started!");
+            if config_file_path.exists() {
+                println!(
+                    "⚠️  Configuration file already exists at: {}",
+                    config_file_path.display()
+                );
+                println!("To avoid overwriting your existing configuration, init was skipped.");
+                println!(
+                    "If you want to recreate the config, please delete the existing file first."
+                );
+            } else {
+                println!(
+                    "Initializing configuration file at: {}",
+                    config_file_path.display()
+                );
+                Config::generate_default_config(config_file_path.clone())?;
+                println!("Default configuration written successfully.");
+                println!("Edit the file and add your Gemini API key to get started!");
+            }
         }
         Some(Commands::Test) => {
             println!("🔍 Testing LLM API connection...");
@@ -268,10 +279,10 @@ async fn main() -> Result<()> {
             let db_path = if let Some(path) = &cache_config.database_path {
                 PathBuf::from(path)
             } else {
-                let mut default_path = dirs::data_dir()
-                    .or_else(|| dirs::config_dir())
+                let mut default_path = dirs::data_local_dir()
+                    .or_else(|| dirs::data_dir())
                     .unwrap_or_else(|| PathBuf::from("."));
-                default_path.push("rustrecon");
+                default_path.push("RustRecon");
                 default_path.push("scan_cache.db");
                 default_path
             };

@@ -43,10 +43,38 @@ impl ScanDatabase {
             std::fs::create_dir_all(parent).context("Failed to create database directory")?;
         }
 
-        let database_url = format!("sqlite://{}", database_path.display());
-        let pool = SqlitePool::connect(&database_url)
-            .await
-            .context("Failed to connect to SQLite database")?;
+        // Try different SQLite connection formats for Windows compatibility
+        let database_url = if cfg!(windows) {
+            // On Windows, try file:// URL format first
+            format!(
+                "sqlite:///{}",
+                database_path.display().to_string().replace("\\", "/")
+            )
+        } else {
+            format!("sqlite://{}", database_path.display())
+        };
+
+        println!("  🔗 Connecting to database: {}", database_url);
+
+        // If that fails, try the simple path format as fallback
+        let pool = match SqlitePool::connect(&database_url).await {
+            Ok(pool) => pool,
+            Err(_) if cfg!(windows) => {
+                let fallback_url = database_path.to_string_lossy().to_string();
+                println!("  🔄 Trying fallback connection: {}", fallback_url);
+                SqlitePool::connect(&fallback_url).await.with_context(|| {
+                    format!(
+                        "Failed to connect to SQLite database at: {} or {}",
+                        database_url, fallback_url
+                    )
+                })?
+            }
+            Err(e) => {
+                return Err(e).with_context(|| {
+                    format!("Failed to connect to SQLite database at: {}", database_url)
+                })
+            }
+        };
 
         let db = Self { pool };
         db.initialize_tables().await?;
