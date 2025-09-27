@@ -40,8 +40,7 @@ impl ScanDatabase {
     pub async fn new(database_path: &Path) -> Result<Self> {
         // Ensure parent directory exists
         if let Some(parent) = database_path.parent() {
-            std::fs::create_dir_all(parent)
-                .context("Failed to create database directory")?;
+            std::fs::create_dir_all(parent).context("Failed to create database directory")?;
         }
 
         let database_url = format!("sqlite://{}", database_path.display());
@@ -67,7 +66,7 @@ impl ScanDatabase {
                 analysis TEXT NOT NULL,
                 flagged_patterns_json TEXT NOT NULL,
                 scan_date DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                llm_model TEXT NOT NULL DEFAULT 'gemini-1.5-flash',
+                llm_model TEXT NOT NULL DEFAULT 'gemini-2.5-flash',
                 UNIQUE(package_name, package_version, content_hash)
             );
             "#,
@@ -343,7 +342,7 @@ impl Default for CacheConfig {
     fn default() -> Self {
         Self {
             enabled: true,
-            database_path: None, // Will use default location
+            database_path: None,    // Will use default location
             max_age_days: Some(90), // Keep cache for 3 months
             auto_cleanup: Some(true),
         }
