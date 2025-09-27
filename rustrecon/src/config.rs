@@ -17,6 +17,7 @@ pub struct Config {
 pub struct LlmConfig {
     pub gemini_api_key: String,
     pub gemini_api_endpoint: String,
+    pub gemini_model: Option<String>,
     pub temperature: Option<f32>,
     pub max_tokens: Option<u32>,
 }
@@ -101,6 +102,7 @@ impl Config {
             llm: Some(LlmConfig {
                 gemini_api_key: "PASTE_YOUR_GEMINI_API_KEY_HERE".to_string(),
                 gemini_api_endpoint: "https://generativelanguage.googleapis.com".to_string(),
+                gemini_model: Some("gemini-2.5-flash".to_string()),
                 temperature: Some(0.7),
                 max_tokens: Some(1024),
             }),

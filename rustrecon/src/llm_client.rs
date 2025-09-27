@@ -55,16 +55,22 @@ pub struct GeminiClient {
     client: Client,
     api_key: String,
     api_endpoint: String,
+    model: String,
     last_request_time: Option<Instant>,
     min_request_interval: Duration,
 }
 
 impl GeminiClient {
-    pub fn new(api_key: String, api_endpoint: String) -> Self {
-        Self::with_rate_limit(api_key, api_endpoint, Duration::from_secs(2))
+    pub fn new(api_key: String, api_endpoint: String, model: String) -> Self {
+        Self::with_rate_limit(api_key, api_endpoint, model, Duration::from_secs(2))
     }
 
-    pub fn with_rate_limit(api_key: String, api_endpoint: String, min_interval: Duration) -> Self {
+    pub fn with_rate_limit(
+        api_key: String,
+        api_endpoint: String,
+        model: String,
+        min_interval: Duration,
+    ) -> Self {
         let client = Client::builder()
             .timeout(Duration::from_secs(30))
             .build()
@@ -73,6 +79,7 @@ impl GeminiClient {
             client,
             api_key,
             api_endpoint,
+            model,
             last_request_time: None,
             min_request_interval: min_interval,
         }
@@ -153,8 +160,8 @@ impl LlmClientTrait for GeminiClient {
             request.prompt.len()
         );
         let url = format!(
-            "{}/v1/models/gemini-pro:generateContent?key={}",
-            self.api_endpoint, self.api_key
+            "{}/v1/models/{}:generateContent?key={}",
+            self.api_endpoint, self.model, self.api_key
         );
 
         // Enhanced prompt for better security analysis

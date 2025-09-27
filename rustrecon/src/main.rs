@@ -52,16 +52,20 @@ async fn main() -> Result<()> {
             })?;
 
             // Initialize LLM client
+            let model = llm_config
+                .gemini_model
+                .clone()
+                .unwrap_or_else(|| "gemini-2.5-flash".to_string());
             let gemini_client = GeminiClient::new(
                 llm_config.gemini_api_key.clone(),
                 llm_config.gemini_api_endpoint.clone(),
+                model.clone(),
             );
 
             // Wrap with caching layer
             let cache_config = config.cache.unwrap_or_default();
             let mut cached_client =
-                CachedLlmClient::new(gemini_client, cache_config, "gemini-2.5-flash".to_string())
-                    .await?;
+                CachedLlmClient::new(gemini_client, cache_config, model).await?;
 
             // Simple test request
             let test_request = LlmRequest {
@@ -130,17 +134,21 @@ async fn main() -> Result<()> {
                 min_interval.as_secs_f32()
             );
 
+            let model = llm_config
+                .gemini_model
+                .clone()
+                .unwrap_or_else(|| "gemini-2.5-flash".to_string());
             let gemini_client = GeminiClient::with_rate_limit(
                 llm_config.gemini_api_key,
                 llm_config.gemini_api_endpoint,
+                model.clone(),
                 min_interval,
             );
 
             // Initialize cached LLM client
             let cache_config = config.cache.unwrap_or_default();
             let mut cached_client =
-                CachedLlmClient::new(gemini_client, cache_config, "gemini-2.5-flash".to_string())
-                    .await?;
+                CachedLlmClient::new(gemini_client, cache_config, model).await?;
 
             // Initialize scanners
             let project_path = PathBuf::from(crate_path);
