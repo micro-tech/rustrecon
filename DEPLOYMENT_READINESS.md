@@ -43,7 +43,7 @@ git push origin main
 #### Current Configuration Status:
 ```toml
 [llm]
-gemini_api_key = "AIzaSyCjIsIuhjbxXY9HwlbSWCS8uUjD68aFEVQ"
+gemini_api_key = ""
 gemini_api_endpoint = "https://generativelanguage.googleapis.com"
 gemini_model = "gemini-1.5-pro-latest"  # ✅ Fixed from problematic 1.5-flash
 temperature = 0.699999988079071
@@ -258,7 +258,7 @@ If deployment fails:
 
 ---
 
-**Document Version**: 1.0  
-**Last Updated**: 2024-12-28  
-**Status**: Ready for use  
+**Document Version**: 1.0
+**Last Updated**: 2024-12-28
+**Status**: Ready for use
 **Next Review**: When making significant changes to deployment process
