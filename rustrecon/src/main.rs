@@ -8,6 +8,7 @@ mod cli;
 mod config;
 mod database;
 mod dependency_scanner;
+mod enhanced_init;
 mod llm_client;
 mod report;
 mod scanner;
@@ -18,6 +19,7 @@ use cli::{Cli, Commands};
 use config::Config;
 use database::ScanDatabase;
 use dependency_scanner::DependencyScanner;
+use enhanced_init::enhanced_init;
 use llm_client::{GeminiClient, LlmClientTrait, LlmRequest};
 use report::RiskReport;
 use scanner::Scanner;
@@ -28,30 +30,8 @@ async fn main() -> Result<()> {
 
     match &cli.command {
         Some(Commands::Init { config_path }) => {
-            let config_file_path = if let Some(path) = config_path {
-                PathBuf::from(path)
-            } else {
-                Config::get_default_config_path()?
-            };
-
-            if config_file_path.exists() {
-                println!(
-                    "⚠️  Configuration file already exists at: {}",
-                    config_file_path.display()
-                );
-                println!("To avoid overwriting your existing configuration, init was skipped.");
-                println!(
-                    "If you want to recreate the config, please delete the existing file first."
-                );
-            } else {
-                println!(
-                    "Initializing configuration file at: {}",
-                    config_file_path.display()
-                );
-                Config::generate_default_config(config_file_path.clone())?;
-                println!("Default configuration written successfully.");
-                println!("Edit the file and add your Gemini API key to get started!");
-            }
+            // Use enhanced init function that prompts for API key and shows clear messages
+            enhanced_init(config_path.clone())?;
         }
         Some(Commands::Test) => {
             println!("🔍 Testing LLM API connection...");

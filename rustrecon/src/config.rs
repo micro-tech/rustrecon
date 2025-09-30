@@ -95,14 +95,16 @@ impl Config {
     pub fn generate_default_config(path: PathBuf) -> Result<()> {
         // Create parent directories if they don't exist
         if let Some(parent) = path.parent() {
+            println!("📁 Creating directory: {}", parent.display());
             fs::create_dir_all(parent)?;
+            println!("✓ Directory created successfully");
         }
 
         let default_config = Self {
             llm: Some(LlmConfig {
                 gemini_api_key: "PASTE_YOUR_GEMINI_API_KEY_HERE".to_string(),
                 gemini_api_endpoint: "https://generativelanguage.googleapis.com".to_string(),
-                gemini_model: Some("gemini-2.5-flash".to_string()),
+                gemini_model: Some("gemini-1.5-pro-latest".to_string()),
                 temperature: Some(0.7),
                 max_tokens: Some(1024),
             }),
@@ -120,7 +122,17 @@ impl Config {
         };
 
         let toml_string = toml::to_string_pretty(&default_config)?;
+        println!("📄 Writing configuration file: {}", path.display());
         fs::write(&path, toml_string)?;
+        println!("✓ Configuration file created successfully");
+        println!();
+        println!("📍 Configuration stored at:");
+        println!("   {}", path.display());
+        println!();
+        println!("🔑 IMPORTANT: You need to add your Gemini API key!");
+        println!("   1. Get your API key from: https://aistudio.google.com/app/apikey");
+        println!("   2. Edit the config file and replace: PASTE_YOUR_GEMINI_API_KEY_HERE");
+        println!("   3. Test your setup with: rustrecon test");
         Ok(())
     }
 
