@@ -272,20 +272,27 @@ async fn main() -> Result<()> {
 
             if *clear {
                 println!("\n🗑️ Clearing all cached scan results...");
-                if let Ok(database) = ScanDatabase::new(&db_path).await {
-                    match database.cleanup_old_entries(0).await {
+                match ScanDatabase::new(&db_path).await {
+                    Ok(database) => match database.cleanup_old_entries(0).await {
                         Ok(deleted) => println!("✅ Cleared {} cached entries", deleted),
                         Err(e) => println!("❌ Failed to clear cache: {}", e),
+                    },
+                    Err(e) => {
+                        println!("❌ Could not access cache database: {}", e);
+                        println!("   Error details:");
+                        let mut source = e.source();
+                        while let Some(err) = source {
+                            println!("   → {}", err);
+                            source = err.source();
+                        }
                     }
-                } else {
-                    println!("❌ Could not access cache database");
                 }
             }
 
             if *stats || (!clear && export.is_none()) {
                 println!("\n📈 Cache Statistics:");
-                if let Ok(database) = ScanDatabase::new(&db_path).await {
-                    match database.get_cache_stats().await {
+                match ScanDatabase::new(&db_path).await {
+                    Ok(database) => match database.get_cache_stats().await {
                         Ok(stats) => {
                             println!("   Total cached entries: {}", stats.total_cached_entries);
                             println!("   Recent scans (7 days): {}", stats.recent_scans_7_days);
@@ -304,25 +311,48 @@ async fn main() -> Result<()> {
                             }
                         }
                         Err(e) => println!("   ❌ Failed to get statistics: {}", e),
+                    },
+                    Err(e) => {
+                        println!("   ❌ No cache database found or accessible");
+                        println!("   Error details: {}", e);
+                        let mut source = e.source();
+                        while let Some(err) = source {
+                            println!("   → {}", err);
+                            source = err.source();
+                        }
+
+                        // Additional debugging information
+                        println!("\n   🔍 Debug information:");
+                        println!("   Database path: {}", db_path.display());
+                        if let Some(parent) = db_path.parent() {
+                            println!("   Parent directory exists: {}", parent.exists());
+                            println!("   Parent directory: {}", parent.display());
+                        }
+                        println!("   Cache enabled: {}", cache_config.enabled.unwrap_or(true));
                     }
-                } else {
-                    println!("   No cache database found or accessible");
                 }
             }
 
             if let Some(export_path) = export {
                 println!("\n📤 Exporting cache data to: {}", export_path);
-                if let Ok(database) = ScanDatabase::new(&db_path).await {
-                    match database.export_cache().await {
+                match ScanDatabase::new(&db_path).await {
+                    Ok(database) => match database.export_cache().await {
                         Ok(data) => {
                             let json_data = serde_json::to_string_pretty(&data)?;
                             std::fs::write(export_path, json_data)?;
                             println!("✅ Cache data exported successfully");
                         }
-                        Err(e) => println!("❌ Failed to export cache: {}", e),
+                        Err(e) => println!("❌ Failed to export cache data: {}", e),
+                    },
+                    Err(e) => {
+                        println!("❌ Could not access cache database for export: {}", e);
+                        println!("   Error details:");
+                        let mut source = e.source();
+                        while let Some(err) = source {
+                            println!("   → {}", err);
+                            source = err.source();
+                        }
                     }
-                } else {
-                    println!("❌ Could not access cache database");
                 }
             }
         }

@@ -3,12 +3,15 @@ name = "rustrecon"
 version = "0.1.0"
 edition = "2021"
 
+
 [dependencies]
 clap = { version = "4.4", features = ["derive"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 tokio = { version = "1", features = ["full"] }
-reqwest = { version = "0.11", features = ["json"] } # Removed "blocking" feature as tokio is used for async
+reqwest = { version = "0.11", features = [
+    "json",
+] } # Removed "blocking" feature as tokio is used for async
 cargo_metadata = "0.15"
 tree-sitter = "0.20"
 tree-sitter-rust = "0.20"
@@ -20,5 +23,11 @@ toml = "0.8.12" # For parsing and generating TOML configuration files
 dirs = "5.0.1" # For discovering standard directories like config_dir
 walkdir = "2.5.0"
 regex = "1.11.2"
-sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "sqlite", "chrono", "uuid"] }
+sqlx = { version = "0.7", features = [
+    "runtime-tokio-rustls",
+    "sqlite",
+    "chrono",
+    "uuid",
+    "bundled",
+] }
 sha2 = "0.10"
