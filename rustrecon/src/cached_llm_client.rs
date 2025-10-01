@@ -2,8 +2,8 @@ use anyhow::{Context, Result};
 use std::path::PathBuf;
 
 use crate::config::CacheConfig;
-use crate::database::{CachedScanResult, ScanDatabase};
-use crate::llm_client::{FlaggedPattern, LlmClientError, LlmClientTrait, LlmRequest, LlmResponse};
+use crate::database::ScanDatabase;
+use crate::llm_client::{LlmClientError, LlmClientTrait, LlmRequest, LlmResponse};
 
 pub struct CachedLlmClient<T: LlmClientTrait + Send> {
     inner_client: T,
@@ -73,7 +73,7 @@ impl<T: LlmClientTrait + Send> CachedLlmClient<T> {
         request: LlmRequest,
     ) -> Result<LlmResponse, LlmClientError> {
         // Generate content hash for cache lookup
-        let content_hash = if let Some(ref db) = self.database {
+        let content_hash = if let Some(ref _db) = self.database {
             ScanDatabase::generate_content_hash(content)
         } else {
             String::new()

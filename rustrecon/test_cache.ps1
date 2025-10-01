@@ -10,6 +10,7 @@ Write-Host
 Write-Host "Step 1: Building with bundled SQLite..." -ForegroundColor Yellow
 Write-Host
 try {
+    cargo update
     cargo build --release
     if ($LASTEXITCODE -ne 0) {
         throw "Build failed with exit code $LASTEXITCODE"
@@ -60,13 +61,22 @@ Write-Host
 Write-Host "Step 4: Testing a simple scan to trigger cache creation..." -ForegroundColor Yellow
 Write-Host
 
-# Create a test Rust file
-$testContent = 'fn main() { println!("Hello, cache test!"); }'
-Set-Content -Path "test_temp.rs" -Value $testContent
-Write-Host "Created temporary test file: test_temp.rs" -ForegroundColor Gray
+# Create a test Rust file with potential security issues to trigger cache
+$testContent = @"
+use std::process::Command;
 
-# Run scan
-Write-Host "Running scan..." -ForegroundColor Gray
+fn main() {
+    let user_input = "test";
+    let cmd = format!("echo {}", user_input);
+    Command::new("sh").arg("-c").arg(&cmd).output().unwrap();
+    println!("Hello, cache test!");
+}
+"@
+Set-Content -Path "test_temp.rs" -Value $testContent
+Write-Host "Created temporary test file with security patterns: test_temp.rs" -ForegroundColor Gray
+
+# Run scan to trigger cache creation
+Write-Host "Running scan to trigger cache database creation..." -ForegroundColor Gray
 & ".\target\release\rustrecon.exe" scan test_temp.rs --format summary
 
 Write-Host
@@ -117,18 +127,21 @@ Write-Host "   LOCALAPPDATA: $env:LOCALAPPDATA" -ForegroundColor Gray
 Write-Host "   Current User: $env:USERNAME" -ForegroundColor Gray
 Write-Host "   PowerShell Version: $($PSVersionTable.PSVersion)" -ForegroundColor Gray
 Write-Host "   Working Directory: $PWD" -ForegroundColor Gray
+Write-Host "   SQLx Version: 0.8.6 (with bundled SQLite)" -ForegroundColor Gray
+Write-Host "   libsqlite3-sys: bundled feature enabled" -ForegroundColor Gray
 
 Write-Host
 
 if (Test-Path $expectedPath) {
     Write-Host "🎉 SUCCESS: Cache database is working!" -ForegroundColor Green
-    Write-Host "The bundled SQLite fix resolved the database connection issues." -ForegroundColor Green
+    Write-Host "The SQLx 0.8.6 upgrade with bundled SQLite resolved the database connection issues." -ForegroundColor Green
 } else {
     Write-Host "❓ If the database wasn't created, possible issues:" -ForegroundColor Yellow
     Write-Host "   1. Permission issues with AppData directory" -ForegroundColor Gray
     Write-Host "   2. Cache disabled in configuration" -ForegroundColor Gray
-    Write-Host "   3. SQLite bundling didn't work as expected" -ForegroundColor Gray
+    Write-Host "   3. SQLx 0.8.6 compatibility issues" -ForegroundColor Gray
     Write-Host "   4. Application errors during database initialization" -ForegroundColor Gray
+    Write-Host "   5. libsqlite3-sys bundled feature not working" -ForegroundColor Gray
 }
 
 Write-Host

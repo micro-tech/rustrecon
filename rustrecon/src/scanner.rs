@@ -11,7 +11,7 @@ pub struct Scanner {
 impl Scanner {
     pub fn new(crate_path: PathBuf) -> Result<Self> {
         let mut parser = Parser::new();
-        parser.set_language(tree_sitter_rust::language())?;
+        parser.set_language(&tree_sitter_rust::LANGUAGE.into())?;
         Ok(Scanner { crate_path, parser })
     }
 
@@ -66,7 +66,8 @@ impl Scanner {
 
         // Exclude very large files (likely generated)
         if let Ok(metadata) = std::fs::metadata(path) {
-            if metadata.len() > 500_000 {  // 500KB limit
+            if metadata.len() > 500_000 {
+                // 500KB limit
                 return true;
             }
         }

@@ -7,8 +7,9 @@ echo RustRecon Cache Test Script
 echo ====================================
 echo.
 
-echo Step 1: Building with bundled SQLite...
+echo Step 1: Building with SQLx 0.8.6 and bundled SQLite...
 echo.
+cargo update
 cargo build --release
 if %errorlevel% neq 0 (
     echo ERROR: Build failed!
@@ -41,8 +42,15 @@ if exist "C:\Users\%USERNAME%\AppData\Local\RustRecon\scan_cache.db" (
 echo.
 echo Step 4: Testing a simple scan to trigger cache creation...
 echo.
-echo Creating a test Rust file...
-echo fn main() { println!("test"); } > test_temp.rs
+echo Creating a test Rust file with security patterns...
+echo use std::process::Command; > test_temp.rs
+echo. >> test_temp.rs
+echo fn main() { >> test_temp.rs
+echo     let user_input = "test"; >> test_temp.rs
+echo     let cmd = format!("echo {}", user_input); >> test_temp.rs
+echo     Command::new("sh").arg("-c").arg(^&cmd).output().unwrap(); >> test_temp.rs
+echo     println!("Hello, cache test!"); >> test_temp.rs
+echo } >> test_temp.rs
 
 target\release\rustrecon.exe scan test_temp.rs --format summary
 
@@ -61,6 +69,11 @@ echo Cache test completed!
 echo ====================================
 echo.
 echo If you see "Cache database initialized" messages above,
-echo the fix was successful!
+echo the SQLx 0.8.6 upgrade with bundled SQLite was successful!
+echo.
+echo Technical details:
+echo - SQLx version: 0.8.6
+echo - libsqlite3-sys: bundled feature enabled
+echo - This eliminates system SQLite dependency requirements
 echo.
 pause

@@ -9,7 +9,7 @@ use crate::config::{CacheConfig, Config, LlmConfig, RateLimitConfig};
 use anyhow::{anyhow, Result};
 use std::fs;
 use std::io::{self, Write};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 /// Enhanced initialization that prompts for user input and provides clear feedback
 pub fn enhanced_init(custom_path: Option<String>) -> Result<()> {

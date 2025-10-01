@@ -4,7 +4,7 @@ use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
-use tokio::time::{sleep, timeout, Duration};
+use tokio::time::{timeout, Duration};
 
 use crate::cached_llm_client::CachedLlmClient;
 use crate::llm_client::{FlaggedPattern, LlmClientTrait, LlmRequest};
@@ -239,7 +239,7 @@ impl DependencyScanner {
         let risk_score = self.calculate_risk_score(&metadata_flags, &[]);
 
         Ok(DependencyAnalysisResult {
-            package_name: package.name.clone(),
+            package_name: package.name.to_string(),
             version: package.version.to_string(),
             source,
             risk_score,
@@ -263,7 +263,9 @@ impl DependencyScanner {
         let metadata_flags = self.analyze_package_metadata(package).await?;
 
         // Download and analyze source code (with size limits)
-        let (code_analysis, suspicious_patterns) = if self.trusted_packages.contains(&package.name)
+        let (code_analysis, suspicious_patterns) = if self
+            .trusted_packages
+            .contains(package.name.as_str())
         {
             // Skip LLM analysis for trusted packages to save API calls
             (
@@ -329,7 +331,7 @@ Provide a brief security assessment.",
         let risk_score = self.calculate_risk_score(&metadata_flags, &suspicious_patterns);
 
         Ok(DependencyAnalysisResult {
-            package_name: package.name.clone(),
+            package_name: package.name.to_string(),
             version: package.version.to_string(),
             source,
             risk_score,
