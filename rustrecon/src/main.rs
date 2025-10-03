@@ -260,7 +260,7 @@ async fn main() -> Result<()> {
                 PathBuf::from(path)
             } else {
                 let mut default_path = dirs::data_local_dir()
-                    .or_else(|| dirs::data_dir())
+                    .or_else(|| dirs::data_local_dir())
                     .unwrap_or_else(|| PathBuf::from("."));
                 default_path.push("RustRecon");
                 default_path.push("scan_cache.db");

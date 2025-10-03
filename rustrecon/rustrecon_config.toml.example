@@ -16,7 +16,7 @@ max_requests_per_minute = 20
 # Enable database caching to reduce API calls
 enabled = true
 # Database file location (auto-detected if not specified)
-# database_path = "C:\\Users\\username\\AppData\\Roaming\\rustrecon\\scan_cache.db"
+# database_path = "%LOCALAPPDATA%\\rustrecon\\scan_cache.db"
 # Maximum age for cached results (days)
 max_age_days = 90
 # Automatically clean up old cache entries

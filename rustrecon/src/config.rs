@@ -58,16 +58,6 @@ impl Config {
             }
         }
 
-        // 2. User config directory (Linux/macOS: ~/.config, Windows: %APPDATA%) - Legacy location
-        if let Some(mut config_dir) = dirs::config_dir() {
-            config_dir.push("RustRecon");
-            config_dir.push(DEFAULT_CONFIG_FILE_NAME);
-            if config_dir.exists() {
-                println!("Loading config from: {}", config_dir.display());
-                return Config::load_from_path(&config_dir);
-            }
-        }
-
         // 3. Home directory fallback
         if let Some(mut home_dir) = dirs::home_dir() {
             home_dir.push(".rustrecon");
@@ -145,13 +135,6 @@ impl Config {
             local_data_dir.push("RustRecon");
             local_data_dir.push(DEFAULT_CONFIG_FILE_NAME);
             return Ok(local_data_dir);
-        }
-
-        // 2. User config directory (Linux/macOS: ~/.config, Windows: %APPDATA%) - Legacy location
-        if let Some(mut config_dir) = dirs::config_dir() {
-            config_dir.push("RustRecon");
-            config_dir.push(DEFAULT_CONFIG_FILE_NAME);
-            return Ok(config_dir);
         }
 
         // 3. Home directory fallback
