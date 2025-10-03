@@ -8,7 +8,6 @@ use crate::llm_client::{LlmClientError, LlmClientTrait, LlmRequest, LlmResponse}
 pub struct CachedLlmClient<T: LlmClientTrait + Send> {
     inner_client: T,
     database: Option<ScanDatabase>,
-    cache_config: CacheConfig,
     cache_hits: u32,
     cache_misses: u32,
     llm_model: String,
@@ -16,15 +15,9 @@ pub struct CachedLlmClient<T: LlmClientTrait + Send> {
 
 impl<T: LlmClientTrait + Send> CachedLlmClient<T> {
     /// Create a new cached LLM client wrapper
-    pub async fn new(
-        inner_client: T,
-        cache_config: CacheConfig,
-        llm_model: String,
-    ) -> Result<Self> {
-        let database = if cache_config.enabled.unwrap_or(true) {
-            let db_path = if let Some(path) = &cache_config.database_path {
-                PathBuf::from(path)
-            } else {
+    pub async fn new(inner_client: T, llm_model: String) -> Result<Self> {
+        let database = {
+            let db_path = {
                 // Use default location in user's local data directory
                 let mut default_path = dirs::data_local_dir()
                     .or_else(|| dirs::data_local_dir())
@@ -49,15 +42,11 @@ impl<T: LlmClientTrait + Send> CachedLlmClient<T> {
                     None
                 }
             }
-        } else {
-            println!("📊 Database caching disabled in configuration");
-            None
         };
 
         Ok(Self {
             inner_client,
             database,
-            cache_config,
             cache_hits: 0,
             cache_misses: 0,
             llm_model,
@@ -165,21 +154,6 @@ impl<T: LlmClientTrait + Send> CachedLlmClient<T> {
         Ok(stats)
     }
 
-    /// Clean up old cache entries
-    pub async fn cleanup_cache(&self) -> Result<u32> {
-        if let Some(ref db) = self.database {
-            let max_age = self.cache_config.max_age_days.unwrap_or(90);
-            let deleted = db.cleanup_old_entries(max_age).await?;
-            println!(
-                "🧹 Cleaned up {} old cache entries (older than {} days)",
-                deleted, max_age
-            );
-            Ok(deleted as u32)
-        } else {
-            Ok(0)
-        }
-    }
-
     /// Record scan session statistics
     pub async fn record_session_stats(&self, total_packages: u32) -> Result<()> {
         if let Some(ref db) = self.database {
@@ -209,16 +183,6 @@ impl<T: LlmClientTrait + Send> CachedLlmClient<T> {
                 let time_saved = stats.api_calls_saved as f32 * 2.0; // Assuming 2s per call
                 println!("   ⏱️  Estimated Time Saved: {:.0} seconds", time_saved);
             }
-        }
-    }
-
-    /// Export cache data for backup
-    pub async fn export_cache(&self) -> Result<String> {
-        if let Some(ref db) = self.database {
-            let entries = db.export_cache().await?;
-            serde_json::to_string_pretty(&entries).context("Failed to serialize cache data")
-        } else {
-            Ok("[]".to_string())
         }
     }
 }

@@ -5,7 +5,7 @@
 // 3. Validates the API key format
 // 4. Creates proper directory structure
 
-use crate::config::{CacheConfig, Config, LlmConfig, RateLimitConfig};
+use crate::config::Config;
 use anyhow::{anyhow, Result};
 use std::fs;
 use std::io::{self, Write};
@@ -162,26 +162,16 @@ pub fn enhanced_init(custom_path: Option<String>) -> Result<()> {
     println!();
     println!("📄 Creating configuration file...");
 
-    let config = Config {
-        llm: Some(LlmConfig {
-            gemini_api_key: api_key.clone(),
-            gemini_api_endpoint: "https://generativelanguage.googleapis.com".to_string(),
-            gemini_model: Some(selected_model),
-            temperature: Some(0.7),
-            max_tokens: Some(1024),
-        }),
-        rate_limiting: Some(RateLimitConfig {
-            min_request_interval_seconds: Some(2.0),
-            max_requests_per_minute: Some(20),
-            enable_rate_limiting: Some(true),
-        }),
-        cache: Some(CacheConfig {
-            enabled: Some(true),
-            database_path: None,    // Will use default location
-            max_age_days: Some(90), // Keep cache for 3 months
-            auto_cleanup: Some(true),
-        }),
-    };
+    Config::generate_default_config(config_path.clone())?;
+
+    // Read the newly created config file to get the default values
+    let mut config = Config::load_from_path(&config_path)?;
+
+    // Update the config with the user-provided API key and model
+    if let Some(llm_config) = config.llm.as_mut() {
+        llm_config.gemini_api_key = api_key.clone();
+        llm_config.gemini_model = Some(selected_model);
+    }
 
     let toml_string = toml::to_string_pretty(&config)
         .map_err(|e| anyhow!("Failed to serialize configuration: {}", e))?;

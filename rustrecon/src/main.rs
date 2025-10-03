@@ -53,10 +53,7 @@ async fn main() -> Result<()> {
                 model.clone(),
             );
 
-            // Wrap with caching layer
-            let cache_config = config.cache.unwrap_or_default();
-            let mut cached_client =
-                CachedLlmClient::new(gemini_client, cache_config, model).await?;
+            let mut cached_client = CachedLlmClient::new(gemini_client, model).await?;
 
             // Simple test request
             let test_request = LlmRequest {
@@ -137,9 +134,7 @@ async fn main() -> Result<()> {
             );
 
             // Initialize cached LLM client
-            let cache_config = config.cache.unwrap_or_default();
-            let mut cached_client =
-                CachedLlmClient::new(gemini_client, cache_config, model).await?;
+            let mut cached_client = CachedLlmClient::new(gemini_client, model).await?;
 
             // Initialize scanners
             let project_path = PathBuf::from(crate_path);
