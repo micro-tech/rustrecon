@@ -114,22 +114,20 @@ rustrecon-installer.exe --uninstall
    rustrecon test
    ```
 
-## 📁 Project Structure
+## 📚 Documentation
 
-```
-rustrecon/
-├── installer/              # Windows installer (Rust-based)
-│   ├── src/main.rs         # Installer logic
-│   ├── build.bat           # Build script
-│   └── README.md           # Installer documentation
-├── rustrecon/              # Main scanner application
-│   ├── src/                # Core scanner code
-│   ├── Cargo.toml          # Dependencies
-│   └── README.md           # Scanner documentation
-├── INSTALLATION.md         # Detailed installation guide
-├── QUICK_INSTALL.md        # Quick start guide
-└── README.md               # This file
-```
+- [DATABASE_CACHING](./docs/DATABASE_CACHING.md)
+- [DEPLOYMENT_READINESS](./docs/DEPLOYMENT_READINESS.md)
+- [INIT_FIXES](./docs/INIT_FIXES.md)
+- [INSTALL_FROM_GITHUB](./docs/INSTALL_FROM_GITHUB.md)
+- [INSTALLATION](./docs/INSTALLATION.md)
+- [QUICK_INSTALL](./docs/QUICK_INSTALL.md)
+- [SQLITE_CACHE_FIX](./docs/SQLITE_CACHE_FIX.md)
+- [DEPENDENCY_SCANNING_DEMO](./docs/DEPENDENCY_SCANNING_DEMO.md)
+- [REPORT_FORMATS](./docs/REPORT_FORMATS.md)
+- [SETUP_GUIDE](./docs/SETUP_GUIDE.md)
+- [RustRecon README](./docs/rustrecon-README.md)
+- [Installer README](./docs/installer-README.md)
 
 ## 🔍 How It Works
 
@@ -195,14 +193,6 @@ cargo test
 cd ../
 test_installer.bat
 ```
-
-## 📚 Documentation
-
-- 📖 **[Installation Guide](INSTALLATION.md)** - Complete setup instructions
-- ⚡ **[Quick Install](QUICK_INSTALL.md)** - Get started in 5 minutes
-- 📊 **[Report Formats](rustrecon/REPORT_FORMATS.md)** - Output format examples
-- 🔧 **[Setup Guide](rustrecon/SETUP_GUIDE.md)** - Advanced configuration
-- 💻 **[Installer Guide](installer/README.md)** - Technical installer details
 
 ## 🤝 Contributing
 
