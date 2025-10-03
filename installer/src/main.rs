@@ -38,7 +38,7 @@ impl Default for InstallationConfig {
     fn default() -> Self {
         // Use user's local AppData directory to avoid admin privileges
         let default_path = dirs::data_local_dir()
-            .unwrap_or_else(|| PathBuf::from("C:\\Users\\Public"))
+            .unwrap_or_else(|| PathBuf::from("C:\\Users\\AppData\\Local"))
             .join(INSTALLATION_DIR);
 
         Self {
@@ -214,7 +214,7 @@ impl Installer {
                 println!("  ⚠️  Cannot access {}: {}", install_path, e);
                 println!("     Falling back to user directory...");
                 self.config.install_path = dirs::data_local_dir()
-                    .unwrap_or_else(|| PathBuf::from("C:\\Users\\Public"))
+                    .unwrap_or_else(|| PathBuf::from("C:\\Users\\AppData\\Local"))
                     .join(INSTALLATION_DIR);
             }
         }

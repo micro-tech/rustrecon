@@ -104,7 +104,7 @@ impl Config {
             llm: Some(LlmConfig {
                 gemini_api_key: "PASTE_YOUR_GEMINI_API_KEY_HERE".to_string(),
                 gemini_api_endpoint: "https://generativelanguage.googleapis.com".to_string(),
-                gemini_model: Some("gemini-1.5-pro-latest".to_string()),
+                gemini_model: Some("gemini-2.5-pro-latest".to_string()),
                 temperature: Some(0.7),
                 max_tokens: Some(1024),
             }),
