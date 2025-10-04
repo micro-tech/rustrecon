@@ -47,4 +47,6 @@ pub enum Commands {
         #[clap(short, long)]
         export: Option<String>,
     },
+    /// Run diagnostic tests for cache and database functionality
+    Diagnose,
 }

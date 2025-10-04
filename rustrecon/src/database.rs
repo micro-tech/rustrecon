@@ -43,38 +43,10 @@ impl ScanDatabase {
             std::fs::create_dir_all(parent).context("Failed to create database directory")?;
         }
 
-        // Try different SQLite connection formats for Windows compatibility
-        let database_url = if cfg!(windows) {
-            // On Windows, try file:// URL format first
-            format!(
-                "sqlite:///{}",
-                database_path.display().to_string().replace("\\", "/")
-            )
-        } else {
-            format!("sqlite://{}", database_path.display())
-        };
-
-        println!("  🔗 Connecting to database: {}", database_url);
-
-        // If that fails, try the simple path format as fallback
-        let pool = match SqlitePool::connect(&database_url).await {
-            Ok(pool) => pool,
-            Err(_) if cfg!(windows) => {
-                let fallback_url = database_path.to_string_lossy().to_string();
-                println!("  🔄 Trying fallback connection: {}", fallback_url);
-                SqlitePool::connect(&fallback_url).await.with_context(|| {
-                    format!(
-                        "Failed to connect to SQLite database at: {} or {}",
-                        database_url, fallback_url
-                    )
-                })?
-            }
-            Err(e) => {
-                return Err(e).with_context(|| {
-                    format!("Failed to connect to SQLite database at: {}", database_url)
-                })
-            }
-        };
+        let database_url = format!("sqlite://{}", database_path.display());
+        let pool = SqlitePool::connect(&database_url).await.with_context(|| {
+            format!("Failed to connect to SQLite database at: {}", database_url)
+        })?;
 
         let db = Self { pool };
         db.initialize_tables().await?;
@@ -337,11 +309,6 @@ impl ScanDatabase {
 
         Ok(entries)
     }
-
-    /// Close the database connection
-    pub async fn close(&self) {
-        self.pool.close().await;
-    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -355,24 +322,4 @@ pub struct PackageStats {
     pub package_name: String,
     pub scan_count: i64,
     pub last_scan_date: DateTime<Utc>,
-}
-
-/// Configuration for database caching
-#[derive(Debug, Serialize, Deserialize)]
-pub struct CacheConfig {
-    pub enabled: bool,
-    pub database_path: Option<String>,
-    pub max_age_days: Option<u32>,
-    pub auto_cleanup: Option<bool>,
-}
-
-impl Default for CacheConfig {
-    fn default() -> Self {
-        Self {
-            enabled: true,
-            database_path: None,    // Will use default location
-            max_age_days: Some(90), // Keep cache for 3 months
-            auto_cleanup: Some(true),
-        }
-    }
 }

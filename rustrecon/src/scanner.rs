@@ -90,7 +90,6 @@ impl Scanner {
         Ok(Some(FileAnalysisResult {
             path: path.to_path_buf(),
             content,
-            tree,
             // suspicious_patterns: Vec::new(), // Placeholder
         }))
     }
@@ -100,8 +99,6 @@ impl Scanner {
 pub struct FileAnalysisResult {
     pub path: PathBuf,
     pub content: String,
-    pub tree: Tree, // Changed from syn::File to tree_sitter::Tree
-                    // pub suspicious_patterns: Vec<SuspiciousPattern>, // Placeholder for patterns found by initial scan
 }
 
 // Example of how you might traverse the tree (can be moved to a separate module/function)

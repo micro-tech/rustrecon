@@ -1,9 +1,11 @@
-use anyhow::{Context, Result};
+use anyhow::Result;
+use std::fs;
 use std::path::PathBuf;
 
 use crate::config::CacheConfig;
 use crate::database::ScanDatabase;
 use crate::llm_client::{LlmClientError, LlmClientTrait, LlmRequest, LlmResponse};
+use regex::Regex;
 
 pub struct CachedLlmClient<T: LlmClientTrait + Send> {
     inner_client: T,
@@ -16,31 +18,41 @@ pub struct CachedLlmClient<T: LlmClientTrait + Send> {
 impl<T: LlmClientTrait + Send> CachedLlmClient<T> {
     /// Create a new cached LLM client wrapper
     pub async fn new(inner_client: T, llm_model: String) -> Result<Self> {
-        let database = {
-            let db_path = {
-                // Use default location in user's local data directory
-                let mut default_path = dirs::data_local_dir()
-                    .or_else(|| dirs::data_local_dir())
-                    .unwrap_or_else(|| PathBuf::from("."));
-                default_path.push("RustRecon");
-                default_path.push("scan_cache.db");
-                default_path
-            };
+        let db_path = {
+            // Use default location in user's local data directory
+            let mut default_path = dirs::data_local_dir()
+                .or_else(|| dirs::data_local_dir())
+                .unwrap_or_else(|| PathBuf::from("."));
+            default_path.push("RustRecon");
+            default_path
+        };
 
-            println!(
-                "📂 Initializing scan cache database at: {}",
-                db_path.display()
-            );
-            match ScanDatabase::new(&db_path).await {
-                Ok(db) => {
-                    println!("✅ Cache database initialized");
-                    Some(db)
-                }
-                Err(e) => {
-                    println!("⚠️  Failed to initialize cache database: {}", e);
-                    println!("   Continuing without cache...");
-                    None
-                }
+        // Create the directory if it doesn't exist
+        if let Some(parent) = db_path.parent() {
+            if !parent.exists() {
+                fs::create_dir_all(parent)?;
+            }
+        }
+
+        let db_path = if db_path.is_dir() {
+            db_path.join("scan_cache.db")
+        } else {
+            db_path
+        };
+
+        println!(
+            "📂 Initializing scan cache database at: {}",
+            db_path.display()
+        );
+        let database = match ScanDatabase::new(&db_path).await {
+            Ok(db) => {
+                println!("✅ Cache database initialized");
+                Some(db)
+            }
+            Err(e) => {
+                println!("⚠️  Failed to initialize cache database: {}", e);
+                println!("   Continuing without cache...");
+                None
             }
         };
 
@@ -53,80 +65,16 @@ impl<T: LlmClientTrait + Send> CachedLlmClient<T> {
         })
     }
 
-    /// Analyze code with caching support for packages
-    pub async fn analyze_package(
-        &mut self,
-        package_name: &str,
-        package_version: &str,
-        content: &str,
-        request: LlmRequest,
-    ) -> Result<LlmResponse, LlmClientError> {
-        // Generate content hash for cache lookup
-        let content_hash = if let Some(ref _db) = self.database {
-            ScanDatabase::generate_content_hash(content)
+    /// Extracts package name, version, and content from the prompt.
+    fn extract_metadata_from_prompt(&self, prompt: &str) -> (String, String, String) {
+        let re = Regex::new(r"Package: (.+) v(.+)").unwrap();
+        if let Some(caps) = re.captures(prompt) {
+            let package_name = caps.get(1).map_or("", |m| m.as_str()).to_string();
+            let package_version = caps.get(2).map_or("", |m| m.as_str()).to_string();
+            (package_name, package_version, prompt.to_string())
         } else {
-            String::new()
-        };
-
-        // Try to get cached result first
-        if let Some(ref db) = self.database {
-            match db
-                .get_cached_result(package_name, package_version, &content_hash)
-                .await
-            {
-                Ok(Some(cached_result)) => {
-                    self.cache_hits += 1;
-                    println!(
-                        "  💾 Cache HIT for {} v{} (saved API call!)",
-                        package_name, package_version
-                    );
-
-                    return Ok(LlmResponse {
-                        analysis: cached_result.analysis,
-                        flagged_patterns: cached_result.flagged_patterns,
-                    });
-                }
-                Ok(None) => {
-                    // Cache miss, proceed with LLM call
-                    self.cache_misses += 1;
-                }
-                Err(e) => {
-                    println!("⚠️  Cache lookup failed: {}", e);
-                    self.cache_misses += 1;
-                }
-            }
+            ("".to_string(), "".to_string(), prompt.to_string())
         }
-
-        // Cache miss or no cache - call the actual LLM
-        println!(
-            "  🔍 Cache MISS for {} v{} - calling LLM...",
-            package_name, package_version
-        );
-        let response = self.inner_client.analyze_code(request).await?;
-
-        // Store result in cache for future use
-        if let Some(ref db) = self.database {
-            if let Err(e) = db
-                .store_scan_result(
-                    package_name,
-                    package_version,
-                    &content_hash,
-                    &response.analysis,
-                    &response.flagged_patterns,
-                    &self.llm_model,
-                )
-                .await
-            {
-                println!("⚠️  Failed to cache scan result: {}", e);
-            } else {
-                println!(
-                    "  💾 Cached result for {} v{}",
-                    package_name, package_version
-                );
-            }
-        }
-
-        Ok(response)
     }
 
     /// Get cache statistics
@@ -190,9 +138,77 @@ impl<T: LlmClientTrait + Send> CachedLlmClient<T> {
 #[async_trait::async_trait]
 impl<T: LlmClientTrait + Send> LlmClientTrait for CachedLlmClient<T> {
     async fn analyze_code(&mut self, request: LlmRequest) -> Result<LlmResponse, LlmClientError> {
-        // For generic code analysis (not package-specific), we can't use caching
-        // as we don't have package name/version context
-        self.inner_client.analyze_code(request).await
+        // Extract metadata from the prompt
+        let (package_name, package_version, content) =
+            self.extract_metadata_from_prompt(&request.prompt);
+
+        // Generate content hash for cache lookup
+        let content_hash = ScanDatabase::generate_content_hash(&content);
+
+        // Try to get cached result first
+        if let Some(ref db) = self.database {
+            if !package_name.is_empty() && !package_version.is_empty() {
+                match db
+                    .get_cached_result(&package_name, &package_version, &content_hash)
+                    .await
+                {
+                    Ok(Some(cached_result)) => {
+                        self.cache_hits += 1;
+                        println!(
+                            "  💾 Cache HIT for {} v{} (saved API call!)",
+                            package_name, package_version
+                        );
+
+                        return Ok(LlmResponse {
+                            analysis: cached_result.analysis,
+                            flagged_patterns: cached_result.flagged_patterns,
+                        });
+                    }
+                    Ok(None) => {
+                        self.cache_misses += 1;
+                    }
+                    Err(e) => {
+                        println!("⚠️  Cache lookup failed: {}", e);
+                        self.cache_misses += 1;
+                    }
+                }
+            }
+        }
+
+        // Cache miss or no cache - call the actual LLM
+        if !package_name.is_empty() {
+            println!(
+                "  🔍 Cache MISS for {} v{} - calling LLM...",
+                package_name, package_version
+            );
+        }
+        let response = self.inner_client.analyze_code(request).await?;
+
+        // Store result in cache for future use
+        if let Some(ref db) = self.database {
+            if !package_name.is_empty() && !package_version.is_empty() {
+                if let Err(e) = db
+                    .store_scan_result(
+                        &package_name,
+                        &package_version,
+                        &content_hash,
+                        &response.analysis,
+                        &response.flagged_patterns,
+                        &self.llm_model,
+                    )
+                    .await
+                {
+                    println!("⚠️  Failed to cache scan result: {}", e);
+                } else if !package_name.is_empty() {
+                    println!(
+                        "  💾 Cached result for {} v{}",
+                        package_name, package_version
+                    );
+                }
+            }
+        }
+
+        Ok(response)
     }
 }
 

@@ -11,17 +11,20 @@ mod dependency_scanner;
 mod enhanced_init;
 mod llm_client;
 mod report;
+mod rusqlite_cached_llm_client;
+mod rusqlite_database;
 mod scanner;
+mod sqlite_test;
 mod utils;
 
-use cached_llm_client::CachedLlmClient;
 use cli::{Cli, Commands};
 use config::Config;
-use database::ScanDatabase;
 use dependency_scanner::DependencyScanner;
 use enhanced_init::enhanced_init;
 use llm_client::{GeminiClient, LlmClientTrait, LlmRequest};
 use report::RiskReport;
+use rusqlite_cached_llm_client::RusqliteCachedLlmClient;
+use rusqlite_database::RusqliteDatabase;
 use scanner::Scanner;
 
 #[tokio::main]
@@ -53,7 +56,8 @@ async fn main() -> Result<()> {
                 model.clone(),
             );
 
-            let mut cached_client = CachedLlmClient::new(gemini_client, model).await?;
+            let _cache_config = config.cache.unwrap_or_default();
+            let mut cached_client = RusqliteCachedLlmClient::new(gemini_client, model)?;
 
             // Simple test request
             let test_request = LlmRequest {
@@ -133,8 +137,8 @@ async fn main() -> Result<()> {
                 min_interval,
             );
 
-            // Initialize cached LLM client
-            let mut cached_client = CachedLlmClient::new(gemini_client, model).await?;
+            let _cache_config = config.cache.unwrap_or_default();
+            let mut cached_client = RusqliteCachedLlmClient::new(gemini_client, model)?;
 
             // Initialize scanners
             let project_path = PathBuf::from(crate_path);
@@ -184,7 +188,8 @@ async fn main() -> Result<()> {
 
                 // Placeholder for actual LLM interaction
                 let prompt = format!(
-                    "Analyze the following Rust code for malicious behavior, backdoors, or unsafe patterns. Provide a summary of findings and specific flagged lines with severity (High, Medium, Low) and a brief description:\n\n{}",
+                    "File: {}\nAnalyze the following Rust code for malicious behavior, backdoors, or unsafe patterns. Provide a summary of findings and specific flagged lines with severity (High, Medium, Low) and a brief description:\n\n{}",
+                    file_result.path.display(),
                     file_result.content
                 );
                 let llm_request = LlmRequest { prompt };
@@ -222,15 +227,15 @@ async fn main() -> Result<()> {
             risk_report.generate_report(format, output_path.as_deref())?;
 
             // Show cache performance summary
-            cached_client.print_cache_summary().await;
+            cached_client.print_cache_summary();
 
             // Record session statistics
-            if let Err(e) = cached_client.record_session_stats(total_files as u32).await {
+            if let Err(e) = cached_client.record_session_stats(total_files as u32) {
                 println!("⚠️  Failed to record cache statistics: {}", e);
             }
 
             // Clean up old cache entries if auto-cleanup is enabled
-            if let Ok(stats) = cached_client.get_cache_statistics().await {
+            if let Ok(stats) = cached_client.get_cache_statistics() {
                 if stats.cache_hits > 0 {
                     println!(
                         "💡 Tip: Cache saved {} API calls this session!",
@@ -267,8 +272,8 @@ async fn main() -> Result<()> {
 
             if *clear {
                 println!("\n🗑️ Clearing all cached scan results...");
-                match ScanDatabase::new(&db_path).await {
-                    Ok(database) => match database.cleanup_old_entries(0).await {
+                match RusqliteDatabase::new(&db_path) {
+                    Ok(database) => match database.cleanup_old_entries(0) {
                         Ok(deleted) => println!("✅ Cleared {} cached entries", deleted),
                         Err(e) => println!("❌ Failed to clear cache: {}", e),
                     },
@@ -286,14 +291,14 @@ async fn main() -> Result<()> {
 
             if *stats || (!clear && export.is_none()) {
                 println!("\n📈 Cache Statistics:");
-                match ScanDatabase::new(&db_path).await {
-                    Ok(database) => match database.get_cache_stats().await {
+                match RusqliteDatabase::new(&db_path) {
+                    Ok(database) => match database.get_cache_stats() {
                         Ok(stats) => {
                             println!("   Total cached entries: {}", stats.total_cached_entries);
                             println!("   Recent scans (7 days): {}", stats.recent_scans_7_days);
 
                             // Show popular packages
-                            if let Ok(popular) = database.get_popular_packages(5).await {
+                            if let Ok(popular) = database.get_popular_packages(5) {
                                 println!("\n📦 Most Scanned Packages:");
                                 for pkg in popular {
                                     println!(
@@ -330,8 +335,8 @@ async fn main() -> Result<()> {
 
             if let Some(export_path) = export {
                 println!("\n📤 Exporting cache data to: {}", export_path);
-                match ScanDatabase::new(&db_path).await {
-                    Ok(database) => match database.export_cache().await {
+                match RusqliteDatabase::new(&db_path) {
+                    Ok(database) => match database.export_cache() {
                         Ok(data) => {
                             let json_data = serde_json::to_string_pretty(&data)?;
                             std::fs::write(export_path, json_data)?;
@@ -350,6 +355,22 @@ async fn main() -> Result<()> {
                     }
                 }
             }
+        }
+        Some(Commands::Diagnose) => {
+            println!("🔧 Running cache system diagnostics...\n");
+
+            if let Err(e) = sqlite_test::run_all_tests().await {
+                println!("❌ Diagnostic tests failed: {}", e);
+                println!("\n💡 This indicates there may be issues with:");
+                println!("   - SQLite installation or configuration");
+                println!("   - File permissions in the cache directory");
+                println!("   - Database file corruption");
+                println!("\n🔧 Try running: cargo run -- cache --clear");
+                return Err(e);
+            }
+
+            println!("\n✅ All diagnostic tests passed!");
+            println!("💡 The cache system should be working correctly.");
         }
         None => {
             // If no subcommand is provided, print help

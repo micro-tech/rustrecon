@@ -53,7 +53,7 @@ impl Config {
             config_dir.push("RustRecon");
             config_dir.push(DEFAULT_CONFIG_FILE_NAME);
             if config_dir.exists() {
-                println!("Loading config from: {}", config_dir.display());
+                println!("Loading config from:1 {}", config_dir.display());
                 return Config::load_from_path(&config_dir);
             }
         }
@@ -63,7 +63,7 @@ impl Config {
             local_data_dir.push("RustRecon");
             local_data_dir.push(DEFAULT_CONFIG_FILE_NAME);
             if local_data_dir.exists() {
-                println!("Loading config from: {}", local_data_dir.display());
+                println!("Loading config from: 2{}", local_data_dir.display());
                 return Config::load_from_path(&local_data_dir);
             }
         }
@@ -73,7 +73,7 @@ impl Config {
             home_dir.push(".rustrecon");
             home_dir.push(DEFAULT_CONFIG_FILE_NAME);
             if home_dir.exists() {
-                println!("Loading config from: {}", home_dir.display());
+                println!("Loading config from:3 {}", home_dir.display());
                 return Config::load_from_path(&home_dir);
             }
         }

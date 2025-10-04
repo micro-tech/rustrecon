@@ -1,4 +1,4 @@
-use anyhow::{bail, Result};
+use anyhow::Result;
 use cargo_metadata::{Metadata, MetadataCommand, Package};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
@@ -6,7 +6,6 @@ use std::collections::{HashMap, HashSet};
 use std::path::Path;
 use tokio::time::{timeout, Duration};
 
-use crate::cached_llm_client::CachedLlmClient;
 use crate::llm_client::{FlaggedPattern, LlmClientTrait, LlmRequest};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -118,7 +117,7 @@ impl DependencyScanner {
     pub async fn scan_dependencies<T: LlmClientTrait + Send>(
         &self,
         project_path: &Path,
-        llm_client: &mut CachedLlmClient<T>,
+        llm_client: &mut T,
     ) -> Result<Vec<DependencyAnalysisResult>> {
         println!("🔍 Scanning dependencies for supply chain security...");
 
@@ -254,7 +253,7 @@ impl DependencyScanner {
     async fn analyze_dependency<T: LlmClientTrait + Send>(
         &self,
         package: &Package,
-        llm_client: &mut CachedLlmClient<T>,
+        llm_client: &mut T,
     ) -> Result<DependencyAnalysisResult> {
         // Determine dependency source
         let source = self.determine_dependency_source(package);
@@ -299,17 +298,7 @@ Provide a brief security assessment.",
                 prompt: analysis_prompt.clone(),
             };
 
-            match timeout(
-                Duration::from_secs(45),
-                llm_client.analyze_package(
-                    &package.name,
-                    &package.version.to_string(),
-                    &analysis_prompt,
-                    request,
-                ),
-            )
-            .await
-            {
+            match timeout(Duration::from_secs(45), llm_client.analyze_code(request)).await {
                 Ok(Ok(llm_response)) => {
                     (Some(llm_response.analysis), llm_response.flagged_patterns)
                 }
@@ -335,7 +324,7 @@ Provide a brief security assessment.",
             version: package.version.to_string(),
             source,
             risk_score,
-            suspicious_patterns,
+            suspicious_patterns: suspicious_patterns.to_vec(),
             metadata_flags,
             code_analysis,
         })
@@ -498,53 +487,6 @@ Provide a brief security assessment.",
                 description: "Package can execute external processes".to_string(),
                 severity: "High".to_string(),
             });
-        }
-    }
-
-    async fn download_and_analyze_source<T: LlmClientTrait + Send>(
-        &self,
-        package: &Package,
-        llm_client: &mut CachedLlmClient<T>,
-    ) -> Result<(Option<String>, Vec<FlaggedPattern>)> {
-        // For now, we'll analyze the package's lib.rs or main.rs if accessible
-        // In a full implementation, we'd download the crate source from crates.io
-
-        // This is a simplified version - we'd need to implement actual source downloading
-        let analysis_prompt = format!(
-            "Analyze this Rust package for potential security threats, supply chain attacks, or malicious behavior:
-
-Package: {} v{}
-Dependencies: {}
-
-Look specifically for:
-1. Unexpected network requests or data exfiltration
-2. File system manipulation beyond normal operations
-3. Process execution or system command usage
-4. Cryptographic operations that could be backdoors
-5. Code obfuscation or suspicious patterns
-6. Supply chain attack indicators
-
-Provide analysis and flag any suspicious patterns with line numbers if possible.",
-            package.name,
-            package.version,
-            package.dependencies.iter()
-                .map(|d| format!("{}", d.name))
-                .collect::<Vec<_>>()
-                .join(", ")
-        );
-
-        let request = LlmRequest {
-            prompt: analysis_prompt,
-        };
-
-        match timeout(Duration::from_secs(45), llm_client.analyze_code(request)).await {
-            Ok(Ok(response)) => Ok((Some(response.analysis), response.flagged_patterns)),
-            Ok(Err(e)) => {
-                bail!("LLM analysis failed: {}", e)
-            }
-            Err(_) => {
-                bail!("LLM analysis timed out")
-            }
         }
     }
 

@@ -90,7 +90,7 @@ impl GeminiClient {
         response: &str,
     ) -> Result<(String, Vec<FlaggedPattern>), LlmClientError> {
         let mut patterns = Vec::new();
-        let mut analysis = String::new();
+        let mut analysis;
 
         // Split response into analysis and patterns sections
         if let Some(analysis_start) = response.find("ANALYSIS:") {
