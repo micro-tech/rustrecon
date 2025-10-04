@@ -272,8 +272,14 @@ async fn main() -> Result<()> {
 
             if *clear {
                 println!("\n🗑️ Clearing all cached scan results...");
-                match RusqliteDatabase::new(&db_path) {
-                    Ok(database) => match database.cleanup_old_entries(0) {
+                // Create a dummy client to access cache methods
+                let dummy_client = llm_client::GeminiClient::new(
+                    "dummy".to_string(),
+                    "dummy".to_string(),
+                    "dummy".to_string(),
+                );
+                match RusqliteCachedLlmClient::new(dummy_client, "dummy".to_string()) {
+                    Ok(cached_client) => match cached_client.cleanup_old_entries(0) {
                         Ok(deleted) => println!("✅ Cleared {} cached entries", deleted),
                         Err(e) => println!("❌ Failed to clear cache: {}", e),
                     },
@@ -291,14 +297,20 @@ async fn main() -> Result<()> {
 
             if *stats || (!clear && export.is_none()) {
                 println!("\n📈 Cache Statistics:");
-                match RusqliteDatabase::new(&db_path) {
-                    Ok(database) => match database.get_cache_stats() {
+                // Create a dummy client to access cache methods
+                let dummy_client = llm_client::GeminiClient::new(
+                    "dummy".to_string(),
+                    "dummy".to_string(),
+                    "dummy".to_string(),
+                );
+                match RusqliteCachedLlmClient::new(dummy_client, "dummy".to_string()) {
+                    Ok(cached_client) => match cached_client.get_cache_stats() {
                         Ok(stats) => {
                             println!("   Total cached entries: {}", stats.total_cached_entries);
                             println!("   Recent scans (7 days): {}", stats.recent_scans_7_days);
 
                             // Show popular packages
-                            if let Ok(popular) = database.get_popular_packages(5) {
+                            if let Ok(popular) = cached_client.get_popular_packages(5) {
                                 println!("\n📦 Most Scanned Packages:");
                                 for pkg in popular {
                                     println!(
@@ -335,8 +347,14 @@ async fn main() -> Result<()> {
 
             if let Some(export_path) = export {
                 println!("\n📤 Exporting cache data to: {}", export_path);
-                match RusqliteDatabase::new(&db_path) {
-                    Ok(database) => match database.export_cache() {
+                // Create a dummy client to access cache methods
+                let dummy_client = llm_client::GeminiClient::new(
+                    "dummy".to_string(),
+                    "dummy".to_string(),
+                    "dummy".to_string(),
+                );
+                match RusqliteCachedLlmClient::new(dummy_client, "dummy".to_string()) {
+                    Ok(cached_client) => match cached_client.export_cache() {
                         Ok(data) => {
                             let json_data = serde_json::to_string_pretty(&data)?;
                             std::fs::write(export_path, json_data)?;
